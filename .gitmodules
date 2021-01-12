@@ -1,0 +1,3 @@
+[submodule "spark-janelia"]
+	path = spark-janelia
+	url = https://github.com/JaneliaSciComp/spark-janelia

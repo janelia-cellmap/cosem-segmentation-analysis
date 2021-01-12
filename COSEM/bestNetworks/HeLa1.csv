@@ -1,0 +1,7 @@
+path,HeLa_Cell1_8x8x8nm/HeLa_Cell1_D05-10_8x8x8nm_it
+setup04,er,925000,volumes/raw
+setup04,mito,875000,volumes/raw
+setup04,MVB,975000,volumes/raw
+setup04,nucleus,575000,volumes/raw
+setup04,plasma_membrane,975000,volumes/raw
+setup04,vesicle,825000,volumes/raw

@@ -1,0 +1,8 @@
+path,Choroid-Plexus_8x8x8nm/Choroid-Plexus_8x8x8nm_it
+setup04,er,650000,volumes/raw
+setup04,mito,875000,volumes/raw
+setup04,MVB,625000,volumes/raw
+setup04,nucleus,1100000,volumes/raw
+setup04,plasma_membrane,975000,volumes/raw
+setup04,vesicle,800000,volumes/raw
+

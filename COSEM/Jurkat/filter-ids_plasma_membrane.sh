@@ -1,0 +1,18 @@
+#!/bin/bash
+
+OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/hot-knife' #`dirname "${BASH_SOURCE[0]}"`
+ABS_DIR=`readlink -f "$OWN_DIR"`
+
+FLINTSTONE=$OWN_DIR/flintstone/flintstone-lsd.sh
+JAR=$OWN_DIR/target/hot-knife-0.0.4-SNAPSHOT.jar
+CLASS=org.janelia.saalfeldlab.hotknife.SparkIDFilter
+N_NODES=10
+
+ARGV="\
+--inputN5Path '/groups/cosem/cosem/ackermand/paperResultsWithFullPaths/setup03/Jurkat_Cell1_4x4x4nm/Jurkat_Cell1_FS96-Area1_4x4x4nm_it650000.n5'  \
+--inputN5DatasetName 'plasma_membrane_ccDefaultVolumeFilteredSkipSmoothing' \
+--idsToKeep '17031595981,168424768429,228704343673,66811239596,159241036900,189196781238,135091481080,135811251390,86761962160,27282960000,203672151017,90693193708,6773750274,72961355382,23821450431,110169286263,227194318222,181426821431,139238649954,123121704734,172201236912,203312326480,212706478125,234933433137,256772123322,145951166875,97201279708,25261624160' \
+"
+
+export RUNTIME="48:00"
+TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV

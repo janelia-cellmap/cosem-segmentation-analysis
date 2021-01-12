@@ -1,0 +1,26 @@
+#!/bin/bash
+
+OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/hot-knife' #`dirname "${BASH_SOURCE[0]}"`
+ABS_DIR=`readlink -f "$OWN_DIR"`
+
+FLINTSTONE=$OWN_DIR/flintstone/flintstone-lsd.sh
+JAR=$OWN_DIR/target/hot-knife-0.0.4-SNAPSHOT.jar
+CLASS=org.janelia.saalfeldlab.hotknife.SparkConnectedComponents
+N_NODES=15
+
+
+mkdir -p $OUTPUTN5PATH
+filename=$(basename -- "$fullfile")
+cp $BASH_SOURCE $OUTPUTN5PATH/$filename
+
+ARGV="\
+--inputN5DatasetName 'er_sheetnessVolumeAveraged' \
+--skipSmoothing \
+--thresholdIntensityCutoff 1 \
+--outputN5DatasetSuffix '_ccAt1SkipSmoothing' \
+--inputN5Path '/groups/cosem/cosem/ackermand/paperResultsWithFullPaths/collected/Jurkat.n5' \
+--minimumVolumeCutoff 0 \
+"
+
+export RUNTIME="48:00"
+TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
