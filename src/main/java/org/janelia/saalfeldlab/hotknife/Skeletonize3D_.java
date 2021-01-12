@@ -1,5 +1,9 @@
 package org.janelia.saalfeldlab.hotknife;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Skeletonize3D plugin for ImageJ(C).
  * Copyright (C) 2008 Ignacio Arganda-Carreras 
@@ -24,13 +28,8 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import net.imglib2.RandomAccess;
-import net.imglib2.type.numeric.integer.*;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.view.IntervalView;
 
 

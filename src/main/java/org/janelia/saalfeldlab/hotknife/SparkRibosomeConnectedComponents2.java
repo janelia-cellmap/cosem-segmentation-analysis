@@ -17,7 +17,6 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.io.IOException;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,10 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
@@ -43,36 +42,26 @@ import org.kohsuke.args4j.Option;
 
 import ij.ImageJ;
 import ij.ImagePlus;
-import net.imagej.ops.OpService;
-import net.imagej.ops.image.watershed.Watershed;
 import net.imglib2.Cursor;
 import net.imglib2.Interval;
-import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.algorithm.gauss3.Gauss3;
 import net.imglib2.algorithm.neighborhood.Neighborhood;
 import net.imglib2.algorithm.neighborhood.RectangleShape;
-import net.imglib2.algorithm.region.hypersphere.HyperSphere;
 import net.imglib2.converter.Converters;
 import net.imglib2.img.Img;
-import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.roi.labeling.ImgLabeling;
-import net.imglib2.type.logic.BitType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.RealType;
-import net.imglib2.type.numeric.integer.*;
-import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Intervals;
-import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
-
-import org.janelia.saalfeldlab.hotknife.IOHelper;
-import org.janelia.saalfeldlab.hotknife.ops.SimpleGaussRA;
 
 
 /**

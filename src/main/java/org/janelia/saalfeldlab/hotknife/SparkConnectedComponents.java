@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.janelia.saalfeldlab.hotknife.ops.SimpleGaussRA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
@@ -61,12 +62,10 @@ import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.LongArray;
 import net.imglib2.type.logic.BoolType;
-import net.imglib2.type.numeric.integer.*;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
 import net.imglib2.view.Views;
-
-import org.janelia.saalfeldlab.hotknife.IOHelper;
-import org.janelia.saalfeldlab.hotknife.ops.*;
 
 /**
  * Connected components for an entire n5 volume

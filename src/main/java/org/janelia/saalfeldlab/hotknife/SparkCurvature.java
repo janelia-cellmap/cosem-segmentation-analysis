@@ -17,18 +17,15 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.io.File;
-
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -36,7 +33,6 @@ import org.ejml.data.DMatrixRMaj;
 import org.ejml.dense.row.decomposition.eig.SymmetricQRAlgorithmDecomposition_DDRM;
 import org.janelia.saalfeldlab.hotknife.ops.GradientCenter;
 import org.janelia.saalfeldlab.hotknife.ops.SimpleGaussRA;
-import org.janelia.saalfeldlab.hotknife.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
@@ -49,18 +45,15 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import ij.plugin.SurfacePlotter;
 import it.unimi.dsi.fastutil.doubles.DoubleArrays;
 import it.unimi.dsi.fastutil.doubles.DoubleComparator;
-import net.imagej.ops.math.UnaryRealTypeMath.Step;
-import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.gauss3.Gauss3;
 import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.numeric.integer.*;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.view.ExtendedRandomAccessibleInterval;
 import net.imglib2.view.IntervalView;

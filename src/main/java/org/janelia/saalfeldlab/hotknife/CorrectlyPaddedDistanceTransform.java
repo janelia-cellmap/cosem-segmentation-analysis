@@ -1,6 +1,7 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.util.Arrays;
+
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform.DISTANCE_TYPE;

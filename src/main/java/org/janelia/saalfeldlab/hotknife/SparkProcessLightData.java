@@ -17,34 +17,19 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.io.File;
-import static java.nio.file.StandardCopyOption.*;
-
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.Serializable;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.janelia.saalfeldlab.hotknife.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
@@ -56,28 +41,18 @@ import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-import org.spark_project.guava.collect.Sets;
 
 import net.imagej.ImageJ;
-import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.algorithm.labeling.ConnectedComponentAnalysis;
 import net.imglib2.converter.Converters;
 import net.imglib2.img.Img;
-import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgFactory;
-import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.img.basictypeaccess.array.LongArray;
-import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.NativeType;
-import net.imglib2.type.logic.BoolType;
-import net.imglib2.type.numeric.integer.*;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.FloatType;
-import net.imglib2.util.Intervals;
 import net.imglib2.view.Views;
-
-import org.janelia.saalfeldlab.hotknife.IOHelper;
 
 /**
  * Connected components for an entire n5 volume

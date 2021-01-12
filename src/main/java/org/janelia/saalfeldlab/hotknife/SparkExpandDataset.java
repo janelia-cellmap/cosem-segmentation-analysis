@@ -17,30 +17,17 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.io.File;
-
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.Serializable;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.ejml.data.DMatrixRMaj;
-import org.ejml.dense.row.decomposition.eig.SymmetricQRAlgorithmDecomposition_DDRM;
-import org.janelia.saalfeldlab.hotknife.ops.GradientCenter;
-import org.janelia.saalfeldlab.hotknife.ops.SimpleGaussRA;
-import org.janelia.saalfeldlab.hotknife.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
@@ -53,47 +40,20 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import com.google.common.io.Files;
-
-import ij.IJ;
-import ij.ImageJ;
-import ij.ImagePlus;
-import it.unimi.dsi.fastutil.doubles.DoubleArrays;
-import it.unimi.dsi.fastutil.doubles.DoubleComparator;
-import net.imglib2.Cursor;
-import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccess;
-import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.algorithm.gauss3.Gauss3;
-import net.imglib2.algorithm.labeling.ConnectedComponentAnalysis;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform.DISTANCE_TYPE;
 import net.imglib2.converter.Converters;
-import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.img.array.ArrayRandomAccess;
-import net.imglib2.img.basictypeaccess.array.ByteArray;
 import net.imglib2.img.basictypeaccess.array.FloatArray;
-import net.imglib2.img.basictypeaccess.array.LongArray;
-import net.imglib2.img.cell.CellImgFactory;
-import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.integer.*;
-import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.FloatType;
-import net.imglib2.util.Intervals;
-import net.imglib2.view.ExtendedRandomAccessibleInterval;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
-
-import net.imglib2.algorithm.neighborhood.DiamondShape;
-import net.imglib2.algorithm.neighborhood.Neighborhood;
-import net.imglib2.algorithm.neighborhood.RectangleShape;
-import net.imglib2.algorithm.neighborhood.Shape;
 
 
 /**

@@ -17,14 +17,11 @@
 package org.janelia.saalfeldlab.hotknife;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.RandomAccess;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
@@ -32,27 +29,17 @@ import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 
-import ij.ImageJ;
-import ij.ImagePlus;
-import ij.io.Opener;
-import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.labeling.ConnectedComponentAnalysis;
+import net.imglib2.algorithm.neighborhood.RectangleShape;
 import net.imglib2.converter.Converters;
-import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.array.ArrayRandomAccess;
-import net.imglib2.img.basictypeaccess.array.IntArray;
 import net.imglib2.img.basictypeaccess.array.LongArray;
-import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.logic.BoolType;
-import net.imglib2.type.numeric.integer.UnsignedByteType;
-import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
-import net.imglib2.view.Views;
-import net.imglib2.algorithm.neighborhood.*;
 /**
  *
  *
