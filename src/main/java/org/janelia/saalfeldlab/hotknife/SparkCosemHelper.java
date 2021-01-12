@@ -1,9 +1,17 @@
 package org.janelia.saalfeldlab.hotknife;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+
+import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.GzipCompression;
+import org.janelia.saalfeldlab.n5.N5FSReader;
+import org.janelia.saalfeldlab.n5.N5FSWriter;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import ch.qos.logback.core.Context;
 import net.imglib2.RandomAccess;
@@ -93,5 +101,20 @@ public class SparkCosemHelper {
 		globalID-=pos[1]*dimensions[0];
 		pos[0] = globalID;
 		return pos;
+	}
+	
+	public static void createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName) throws IOException {
+		final N5Reader n5Reader = new N5FSReader(templateN5Path);
+		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(templateDatasetName);
+		final long[] dimensions = attributes.getDimensions();
+		final int[] blockSize = attributes.getBlockSize();
+
+		final N5Writer n5Writer = new N5FSWriter(newN5Path);
+		n5Writer.createDataset(newDatasetName, dimensions, blockSize, attributes.getDataType(),
+				new GzipCompression());
+		double[] pixelResolution = IOHelper.getResolution(n5Reader, templateDatasetName);
+		n5Writer.setAttribute(newDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
+		n5Writer.setAttribute(newDatasetName, "offset", IOHelper.getOffset(n5Reader, templateDatasetName));
+		
 	}
 }

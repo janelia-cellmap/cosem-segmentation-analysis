@@ -13,16 +13,17 @@ import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5Reader;
 
+@SuppressWarnings("serial")
 public class BlockInformation implements Serializable {
 	/**
 	 * Class to contain relevant block information for doing COSEM analysis
 	 */
-	private static final long serialVersionUID = 1L;
 	public long[][] gridBlock;
 	public long[][] paddedGridBlock;
 	public boolean[][][] thinningLocations;
 	public int[][] padding;
 	public int paddingForMedialSurface;
+	
 	public boolean needToThinAgainPrevious;
 	public boolean needToThinAgainCurrent;
 	public boolean isIndependent;
@@ -35,6 +36,7 @@ public class BlockInformation implements Serializable {
 	public Set<Long> selfContainedMaxVolumeOrganelles;
 	public Long selfContainedMaxVolume;
 	public Set<Long> maxVolumeObjectIDs;
+	
 	public BlockInformation() {
 		this.selfContainedMaxVolume =0L;
 		this.selfContainedMaxVolumeOrganelles = new HashSet<Long>();

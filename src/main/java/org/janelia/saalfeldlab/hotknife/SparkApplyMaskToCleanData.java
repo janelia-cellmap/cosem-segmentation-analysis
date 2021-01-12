@@ -46,7 +46,7 @@ import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.Views;
 
 /**
- * Expand a given dataset to mask out predictions for improving downstream analysis.
+ * Mask one dataset with another
  *
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
@@ -54,22 +54,22 @@ public class SparkApplyMaskToCleanData {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--datasetToMaskN5Path", required = true, usage = "Dataset to mask N5 path")
+		@Option(name = "--datasetToMaskN5Path", required = true, usage = "N5 path to mask out")
 		private String datasetToMaskN5Path = null;
-		
-		@Option(name = "--datasetToUseAsMaskN5Path", required = true, usage = "Dataset to use as mask N5 path")
+
+		@Option(name = "--datasetToUseAsMaskN5Path", required = true, usage = "Dataset name to use as mask")
 		private String datasetToUseAsMaskN5Path = null;
 
 		@Option(name = "--outputN5Path", required = true, usage = "Output N5 path")
 		private String outputN5Path = null;
 
-		@Option(name = "--datasetNameToMask", required = false, usage = "Dataset name to mask")
+		@Option(name = "--datasetNameToMask", required = false, usage = "Dataset name to mask out")
 		private String datasetNameToMask = null;
-		
+
 		@Option(name = "--datasetNameToUseAsMask", required = false, usage = "Dataset name to use as mask")
 		private String datasetNameToUseAsMask = null;
-		
-		@Option(name = "--keepWithinMask", required = false, usage = "If true, keep data within the mask region")
+
+		@Option(name = "--keepWithinMask", required = false, usage = "If true, keep data within the mask region; otherwise mask out data in mask")
 		private boolean keepWithinMask = false;
 
 		public Options(final String[] args) {
@@ -87,7 +87,7 @@ public class SparkApplyMaskToCleanData {
 		public String getDatasetToMaskN5Path() {
 			return datasetToMaskN5Path;
 		}
-		
+
 		public String getDatasetToUseAsMaskN5Path() {
 			return datasetToUseAsMaskN5Path;
 		}
@@ -95,7 +95,6 @@ public class SparkApplyMaskToCleanData {
 		public String getDatasetNameToMask() {
 			return datasetNameToMask;
 		}
-		
 
 		public String getDatasetNameToUseAsMask() {
 			return datasetNameToUseAsMask;
@@ -104,7 +103,7 @@ public class SparkApplyMaskToCleanData {
 		public String getOutputN5Path() {
 			return outputN5Path;
 		}
-		
+
 		public boolean getKeepWithinMask() {
 			return keepWithinMask;
 		}
@@ -112,111 +111,105 @@ public class SparkApplyMaskToCleanData {
 	}
 
 	/**
-	 * Use as segmented dataset to mask out a prediction dataset, where the mask can either be inclusive or exclusive.
-	 * @param sc						Spark context
-	 * @param datasetToMaskN5Path		N5 path for dataset that will be masked
-	 * @param datasetNameToMask			Dataset name that will be masked
-	 * @param datasetToUseAsMaskN5Path	N5 path for mask dataset 
-	 * @param datasetNameToUseAsMask	Dataset name to use as mask
-	 * @param n5OutputPath				Output N5 path
-	 * @param expansion					Mask expansion in nm
-	 * @param keepWithinMask			If true, keep data that is within mask; else exclude data within mask
-	 * @param blockInformationList		List of block information
+	 * Use as segmented dataset to mask out a prediction dataset, where the mask can
+	 * either be inclusive or exclusive.
+	 * 
+	 * @param sc                       Spark context
+	 * @param datasetToMaskN5Path      N5 path for dataset that will be masked
+	 * @param datasetNameToMask        Dataset name that will be masked
+	 * @param datasetToUseAsMaskN5Path N5 path for mask dataset
+	 * @param datasetNameToUseAsMask   Dataset name to use as mask
+	 * @param n5OutputPath             Output N5 path
+	 * @param keepWithinMask           If true, keep data that is within mask; else
+	 *                                 exclude data within mask
+	 * @param blockInformationList     List of block information
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final <T extends NumericType<T>> void applyMask(
-			final JavaSparkContext sc,
-			final String datasetToMaskN5Path,
-			final String datasetNameToMask,
-			final String datasetToUseAsMaskN5Path,
-			final String datasetNameToUseAsMask,
-			final String n5OutputPath,
-			final boolean keepWithinMask,
+	public static final <T extends NumericType<T>> void applyMask(final JavaSparkContext sc,
+			final String datasetToMaskN5Path, final String datasetNameToMask, final String datasetToUseAsMaskN5Path,
+			final String datasetNameToUseAsMask, final String n5OutputPath, final boolean keepWithinMask,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(datasetToMaskN5Path);
-		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetNameToMask);
-		final long[] dimensions = attributes.getDimensions();
-		final int[] blockSize = attributes.getBlockSize();		
-		
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
-		String maskedDatasetName = datasetNameToMask + "_maskedWith_"+datasetNameToUseAsMask;
-		n5Writer.createDataset(
-				maskedDatasetName,
-				dimensions,
-				blockSize,
-				attributes.getDataType(),
-				new GzipCompression());
-		double[] pixelResolution = IOHelper.getResolution(n5Reader, datasetNameToMask);
-		n5Writer.setAttribute(maskedDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
-		n5Writer.setAttribute(maskedDatasetName, "offset", IOHelper.getOffset(n5Reader, datasetNameToMask));
-		
+		String maskedDatasetName = datasetNameToMask + "_maskedWith_" + datasetNameToUseAsMask;
+		SparkCosemHelper.createDatasetUsingTemplateDataset(datasetToMaskN5Path, datasetNameToMask, n5OutputPath,
+				maskedDatasetName);
+
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(blockInformation -> {
 			int padding = 1;
-			final long [] offset= blockInformation.gridBlock[0];
-			final long [] dimension = blockInformation.gridBlock[1];
+			final long[] offset = blockInformation.gridBlock[0];
+			final long[] dimension = blockInformation.gridBlock[1];
 			final N5Reader n5MaskReader = new N5FSReader(datasetToUseAsMaskN5Path);
-			final N5Reader n5BlockReader = new N5FSReader(datasetToMaskN5Path);
-			final long [] paddedBlockMin =  new long [] {offset[0]-padding, offset[1]-padding, offset[2]-padding};
-			final long [] paddedBlockSize =  new long [] {dimension[0]+2*padding, dimension[1]+2*padding, dimension[2]+2*padding};
-			
+			final N5Reader n5MaskedReader = new N5FSReader(datasetToMaskN5Path);
+			final long[] paddedBlockMin = new long[] { offset[0] - padding, offset[1] - padding, offset[2] - padding };
+			final long[] paddedBlockSize = new long[] { dimension[0] + 2 * padding, dimension[1] + 2 * padding,
+					dimension[2] + 2 * padding };
+
 			final RandomAccessibleInterval<T> dataToMask;
 			try {
-				dataToMask = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, datasetNameToMask)), offset, dimension);
+				dataToMask = Views.offsetInterval(
+						Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5MaskedReader, datasetNameToMask)),
+						offset, dimension);
 			} catch (Exception e) {
-				System.out.println(datasetToMaskN5Path+" "+datasetNameToMask);
+				System.out.println(datasetToMaskN5Path + " " + datasetNameToMask);
 				System.out.println(Arrays.toString(offset));
 				System.out.println(Arrays.toString(dimension));
 				throw e;
 			}
-			
-			final RandomAccessibleInterval<UnsignedLongType> maskData = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5MaskReader, datasetNameToUseAsMask)), paddedBlockMin, paddedBlockSize);
-			
+
+			final RandomAccessibleInterval<UnsignedLongType> maskData = Views.offsetInterval(Views.extendZero(
+					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5MaskReader, datasetNameToUseAsMask)),
+					paddedBlockMin, paddedBlockSize);
+
 			RandomAccess<UnsignedLongType> maskDataRA = maskData.randomAccess();
 			RandomAccess<T> dataToMaskRA = dataToMask.randomAccess();
-			
-			for(int x=padding; x<dimension[0]+padding; x++) {
-				for(int y= padding; y<dimension[1]+padding; y++) {
-					for(int z=padding; z<dimension[2]+padding; z++) {
-						long [] pos = new long[] {x, y, z};
+
+			for (int x = padding; x < dimension[0] + padding; x++) {
+				for (int y = padding; y < dimension[1] + padding; y++) {
+					for (int z = padding; z < dimension[2] + padding; z++) {
+						long[] pos = new long[] { x, y, z };
 						maskDataRA.setPosition(pos);
-						if(maskDataRA.get().get() >0 ) {
-							if(!keepWithinMask) {//then use mask as regions to set to 0
-								long [] newPos = new long[] {x-padding, y-padding, z-padding};
+						if (maskDataRA.get().get() > 0) {
+
+							if (!keepWithinMask) {// then use mask as regions to set to 0
+								long[] newPos = new long[] { x - padding, y - padding, z - padding };
 								dataToMaskRA.setPosition(newPos);
 								dataToMaskRA.get().setZero();
 							}
-						}
-						else { //set region outside mask to 0
-							if(keepWithinMask) {
-								long [] newPos = new long[] {x-padding, y-padding, z-padding};
+
+						} else { // set region outside mask to 0
+
+							if (keepWithinMask) {
+								long[] newPos = new long[] { x - padding, y - padding, z - padding };
 								dataToMaskRA.setPosition(newPos);
 								dataToMaskRA.get().setZero();
 							}
+
 						}
-						
 
 					}
 				}
 			}
-			
+
 			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
-			if(attributes.getDataType()==DataType.FLOAT64) {
-				N5Utils.saveBlock((RandomAccessibleInterval<FloatType>)dataToMask, n5BlockWriter, maskedDatasetName, blockInformation.gridBlock[2]);
-			}
-			else if(attributes.getDataType()==DataType.UINT64) {
-				N5Utils.saveBlock((RandomAccessibleInterval<UnsignedLongType>)dataToMask, n5BlockWriter, maskedDatasetName, blockInformation.gridBlock[2]);
-			}
-			else {
-				N5Utils.saveBlock((RandomAccessibleInterval<UnsignedByteType>)dataToMask, n5BlockWriter, maskedDatasetName, blockInformation.gridBlock[2]);
+			DataType datatype = new N5FSReader(datasetToMaskN5Path).getDatasetAttributes(datasetNameToMask)
+					.getDataType();
+			if (datatype == DataType.FLOAT64) {
+				N5Utils.saveBlock((RandomAccessibleInterval<FloatType>) dataToMask, n5BlockWriter, maskedDatasetName,
+						blockInformation.gridBlock[2]);
+			} else if (datatype == DataType.UINT64) {
+				N5Utils.saveBlock((RandomAccessibleInterval<UnsignedLongType>) dataToMask, n5BlockWriter,
+						maskedDatasetName, blockInformation.gridBlock[2]);
+			} else {
+				N5Utils.saveBlock((RandomAccessibleInterval<UnsignedByteType>) dataToMask, n5BlockWriter,
+						maskedDatasetName, blockInformation.gridBlock[2]);
 			}
 		});
 	}
-	
+
 	/**
-	 * Perform connected components on mask - if it is not already a segmented dataset - and use expanded version of segmented dataset as mask for prediction dataset.
+	 * Actually do the masking of one dataset with another
 	 * 
 	 * @param args
 	 * @throws IOException
@@ -229,25 +222,21 @@ public class SparkApplyMaskToCleanData {
 
 		if (!options.parsedSuccessfully)
 			return;
-		
+
 		final SparkConf conf = new SparkConf().setAppName("SparkApplyMaskToCleanData");
-		
-		//SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow(conf, options.getDatasetNameToUseAsMask(), options.getDatasetToUseAsMaskN5Path(), null, options.getOutputN5Path(), "_largestComponent", 0, -1, true);
+
 		String datasetToUseAsMaskN5Path = options.getDatasetToUseAsMaskN5Path();
 		String[] organellesToMask = options.getDatasetNameToMask().split(",");
-		for(String mask : options.getDatasetNameToUseAsMask().split(",")) {
-			for(String organelleToMask : organellesToMask) {
-				List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getDatasetToMaskN5Path(),organelleToMask);
+
+		for (String mask : options.getDatasetNameToUseAsMask().split(",")) {
+			for (String organelleToMask : organellesToMask) {
+
+				List<BlockInformation> blockInformationList = BlockInformation
+						.buildBlockInformationList(options.getDatasetToMaskN5Path(), organelleToMask);
 				JavaSparkContext sc = new JavaSparkContext(conf);
-				applyMask(
-						sc,
-						options.getDatasetToMaskN5Path(),
-						organelleToMask,
-						datasetToUseAsMaskN5Path,
-						mask,
-						options.getOutputN5Path(),
-						options.getKeepWithinMask(),
-						blockInformationList) ;
+				applyMask(sc, options.getDatasetToMaskN5Path(), organelleToMask, datasetToUseAsMaskN5Path, mask,
+						options.getOutputN5Path(), options.getKeepWithinMask(), blockInformationList);
+
 				sc.close();
 			}
 		}
