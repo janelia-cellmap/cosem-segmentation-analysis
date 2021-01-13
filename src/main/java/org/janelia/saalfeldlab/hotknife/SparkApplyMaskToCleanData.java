@@ -54,10 +54,10 @@ public class SparkApplyMaskToCleanData {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--datasetToMaskN5Path", required = true, usage = "N5 path to mask out")
+		@Option(name = "--datasetToMaskN5Path", required = true, usage = "N5 path with dataset to mask out")
 		private String datasetToMaskN5Path = null;
 
-		@Option(name = "--datasetToUseAsMaskN5Path", required = true, usage = "Dataset name to use as mask")
+		@Option(name = "--datasetToUseAsMaskN5Path", required = true, usage = "N5 path to dataset to use as mask")
 		private String datasetToUseAsMaskN5Path = null;
 
 		@Option(name = "--outputN5Path", required = true, usage = "Output N5 path")
@@ -142,9 +142,8 @@ public class SparkApplyMaskToCleanData {
 			final long[] dimension = blockInformation.gridBlock[1];
 			final N5Reader n5MaskReader = new N5FSReader(datasetToUseAsMaskN5Path);
 			final N5Reader n5MaskedReader = new N5FSReader(datasetToMaskN5Path);
-			final long[] paddedBlockMin = new long[] { offset[0] - padding, offset[1] - padding, offset[2] - padding };
-			final long[] paddedBlockSize = new long[] { dimension[0] + 2 * padding, dimension[1] + 2 * padding,
-					dimension[2] + 2 * padding };
+			final long[] paddedOffset = blockInformation.getPaddedOffset(padding);
+			final long[] paddedDimension = blockInformation.getPaddedDimension(padding);
 
 			final RandomAccessibleInterval<T> dataToMask;
 			try {
@@ -160,7 +159,7 @@ public class SparkApplyMaskToCleanData {
 
 			final RandomAccessibleInterval<UnsignedLongType> maskData = Views.offsetInterval(Views.extendZero(
 					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5MaskReader, datasetNameToUseAsMask)),
-					paddedBlockMin, paddedBlockSize);
+					paddedOffset, paddedDimension);
 
 			RandomAccess<UnsignedLongType> maskDataRA = maskData.randomAccess();
 			RandomAccess<T> dataToMaskRA = dataToMask.randomAccess();

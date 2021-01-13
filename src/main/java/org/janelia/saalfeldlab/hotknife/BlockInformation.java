@@ -28,7 +28,7 @@ public class BlockInformation implements Serializable {
 	public boolean needToThinAgainCurrent;
 	public boolean isIndependent;
 	public boolean areObjectsTouching;
-	
+		
 	public Map<Long,Long> edgeComponentIDtoVolumeMap;
 	public Map<Long, Long> edgeComponentIDtoRootIDmap;
 	public Map<Long, long[][]> objectIDtoBoundingBoxMap;
@@ -87,5 +87,15 @@ public class BlockInformation implements Serializable {
 			blockInformationList.add(new BlockInformation(currentGridBlock, null, null));
 		}
 		return blockInformationList;
+	}
+	
+	public long [] getPaddedOffset(long padding) {
+		long [] offset = this.gridBlock[0];
+		return new long[]{offset[0]-padding, offset[1]-padding, offset[2]-padding};
+	}
+	
+	public long [] getPaddedDimension(long padding) {
+		long [] dimension = this.gridBlock[1];
+		return new long[]{dimension[0]+2*padding, dimension[1]+2*padding, dimension[2]+2*padding};
 	}
 }
