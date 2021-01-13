@@ -6,17 +6,25 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 
 import ch.qos.logback.core.Context;
+import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
+import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.NumericType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.view.IntervalView;
+import net.imglib2.view.Views;
 
 public class SparkCosemHelper {
 	
@@ -104,17 +112,37 @@ public class SparkCosemHelper {
 	}
 	
 	public static void createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName) throws IOException {
+		createDatasetUsingTemplateDataset(templateN5Path, templateDatasetName, newN5Path, newDatasetName, null);
+	}
+
+	public static void createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName, DataType dataType) throws IOException {
 		final N5Reader n5Reader = new N5FSReader(templateN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(templateDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 
 		final N5Writer n5Writer = new N5FSWriter(newN5Path);
-		n5Writer.createDataset(newDatasetName, dimensions, blockSize, attributes.getDataType(),
+		n5Writer.createDataset(newDatasetName, dimensions, blockSize, dataType == null ? attributes.getDataType() : dataType,
 				new GzipCompression());
 		double[] pixelResolution = IOHelper.getResolution(n5Reader, templateDatasetName);
 		n5Writer.setAttribute(newDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
 		n5Writer.setAttribute(newDatasetName, "offset", IOHelper.getOffset(n5Reader, templateDatasetName));
-		
+	}
+	
+	public static <T extends NumericType<T>> IntervalView< T > getOffsetIntervalExtendZeroRAI(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
+		final N5Reader n5Reader = new N5FSReader(n5Path);
+		return Views.offsetInterval(
+				Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5Reader, dataset)),
+				offset, dimension);
+	}
+	
+	public static <T extends NumericType<T>> RandomAccess < T >  getOffsetIntervalExtendZeroRA(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
+		IntervalView< T > rai = getOffsetIntervalExtendZeroRAI(n5Path, dataset, offset, dimension);
+		return rai.randomAccess();
+	}
+	
+	public static <T extends NumericType<T>> Cursor< T >  getOffsetIntervalExtendZeroC(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
+		IntervalView< T > rai = getOffsetIntervalExtendZeroRAI(n5Path, dataset, offset, dimension);
+		return rai.cursor();
 	}
 }

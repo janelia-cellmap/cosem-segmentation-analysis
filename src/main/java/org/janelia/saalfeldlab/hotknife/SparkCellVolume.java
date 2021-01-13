@@ -53,9 +53,9 @@ import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
-
 /**
- * Calculate the volume representing the entire cell using ECS and plasma membrane results.
+ * Calculate the volume representing the entire cell using ECS and plasma
+ * membrane results.
  *
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
@@ -68,16 +68,16 @@ public class SparkCellVolume {
 
 		@Option(name = "--plasmaMembraneN5Path", required = false, usage = "Plasma membrane N5 path")
 		private String plasmaMembraneN5Path = null;
-		
+
 		@Option(name = "--outputN5Path", required = false, usage = "Output N5 path")
 		private String outputN5Path = null;
-		
+
 		@Option(name = "--maskN5Path", required = true, usage = "Mask N5 path")
 		private String maskN5Path = null;
-		
+
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept (nm^3)")
 		private double minimumVolumeCutoff = 20E6;
-		
+
 		public Options(final String[] args) {
 
 			final CmdLineParser parser = new CmdLineParser(this);
@@ -105,54 +105,50 @@ public class SparkCellVolume {
 		public String getOutputN5Path() {
 			return outputN5Path;
 		}
-		
+
 		public double getMinimumVolumeCutoff() {
 			return minimumVolumeCutoff;
 		}
-		
+
 		public String getMaskN5Path() {
 			return maskN5Path;
 		}
 	}
 
-	
 	/**
-	 * Connected components in a blockwise fashion for the cell volume. Calculated as the space that is not part of the mask, ecs expanded by 3 voxels or the plasma membrane.
-	 * @param sc					Spark context
-	 * @param ecsN5Path				ECS N5 path
-	 * @param plasmaMembraneN5Path	Plasma membrane N5 path
-	 * @param maskN5Path			Mask N5 Path
-	 * @param outputN5Path			Output N5 Path
-	 * @param outputN5DatasetName	Output N5 dataset name
-	 * @param minimumVolumeCutoff	Minimum volume above which objects will be kept
-	 * @param blockInformationList	List of block informations
-	 * @return						Block information list
+	 * Connected components in a blockwise fashion for the cell volume. Calculated
+	 * as the space that is not part of the mask, ecs expanded by 3 voxels or the
+	 * plasma membrane.
+	 * 
+	 * @param sc                   Spark context
+	 * @param ecsN5Path            ECS N5 path
+	 * @param plasmaMembraneN5Path Plasma membrane N5 path
+	 * @param maskN5Path           Mask N5 Path
+	 * @param outputN5Path         Output N5 Path
+	 * @param outputN5DatasetName  Output N5 dataset name
+	 * @param minimumVolumeCutoff  Minimum volume above which objects will be kept
+	 * @param blockInformationList List of block informations
+	 * @return Block information list
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final List<BlockInformation> blockwiseConnectedComponents(
-			final JavaSparkContext sc, final String ecsN5Path,final String plasmaMembraneN5Path, final String maskN5Path,
-			final String outputN5Path, final String outputN5DatasetName, double minimumVolumeCutoff, List<BlockInformation> blockInformationList) throws IOException {
+	public static final List<BlockInformation> blockwiseConnectedComponents(final JavaSparkContext sc,
+			final String ecsN5Path, final String plasmaMembraneN5Path, final String maskN5Path,
+			final String outputN5Path, final String outputN5DatasetName, double minimumVolumeCutoff,
+			List<BlockInformation> blockInformationList) throws IOException {
 
-		// Get attributes of input data sets. ECS and plasma membrane should have same properties
+		// Get attributes of input data sets. ECS and plasma membrane should have same
+		// properties
 		final N5Reader n5Reader = new N5FSReader(ecsN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes("ecs");
 		final int[] blockSize = attributes.getBlockSize();
-		final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
 		final long[] outputDimensions = attributes.getDimensions();
-		final double [] pixelResolution = IOHelper.getResolution(n5Reader, "ecs");
+		final double[] pixelResolution = IOHelper.getResolution(n5Reader, "ecs");
+		final double[] maskPixelResolution = IOHelper.getResolution(new N5FSReader(maskN5Path), "/volumes/masks/foreground");
 		
-		final N5Reader n5MaskReader = new N5FSReader(maskN5Path);
-		final double [] maskPixelResolution = IOHelper.getResolution(n5MaskReader, "/volumes/masks/foreground");
-
-				
 		// Create output dataset
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
-		n5Writer.createGroup(outputN5DatasetName);
-		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize,
-				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
-		n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
-		
+		SparkCosemHelper.createDatasetUsingTemplateDataset(ecsN5Path, "ecs", outputN5Path, outputN5DatasetName);
+
 		// Set up rdd to parallelize over blockInformation list and run RDD, which will
 		// return updated block information containing list of components on the edge of
 		// the corresponding block
@@ -163,51 +159,55 @@ public class SparkCellVolume {
 			long[] offset = gridBlock[0];
 			long[] dimension = gridBlock[1];
 			long expandBy = 3;
-			long expandBySquared = expandBy*expandBy;
-			long [] paddedOffset = new long [] {offset[0]-expandBy,offset[1]-expandBy,offset[2]-expandBy};
-			long [] paddedDimension = new long [] {dimension[0]+2*expandBy,dimension[1]+2*expandBy,dimension[2]+2*expandBy};
-			
+			long expandBySquared = expandBy * expandBy;
+			long[] paddedOffset = currentBlockInformation.getPaddedOffset(expandBy); 
+			long[] paddedDimension = currentBlockInformation.getPaddedDimension(expandBy);
+
 			// Read in ecs data and calculate distance transform, used for expansion
 			final N5Reader ecsReaderLocal = new N5FSReader(ecsN5Path);
-			RandomAccessibleInterval<UnsignedByteType> ecsPredictionsExpanded = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(ecsReaderLocal, "ecs")
-					),paddedOffset, paddedDimension);
-		
-			final RandomAccessibleInterval<NativeBoolType> ecsPredictionsExpandedBinarized =
-					Converters.convert(
-							ecsPredictionsExpanded,
-							(a, b) -> { b.set(a.getRealDouble()>=127 ? true : false);},
-							new NativeBoolType());
-			
+			RandomAccessibleInterval<UnsignedByteType> ecsPredictionsExpanded = Views.offsetInterval(
+					Views.extendZero((RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(ecsReaderLocal, "ecs")),
+					paddedOffset, paddedDimension);
+
+			final RandomAccessibleInterval<NativeBoolType> ecsPredictionsExpandedBinarized = Converters
+					.convert(ecsPredictionsExpanded, (a, b) -> {
+						b.set(a.getRealDouble() >= 127 ? true : false);
+					}, new NativeBoolType());
+
 			ArrayImg<FloatType, FloatArray> distanceFromExpandedEcs = ArrayImgs.floats(paddedDimension);
-			DistanceTransform.binaryTransform(ecsPredictionsExpandedBinarized, distanceFromExpandedEcs, DISTANCE_TYPE.EUCLIDIAN);
-			IntervalView<FloatType> distanceFromEcs = Views.offsetInterval(distanceFromExpandedEcs,new long[] {expandBy,expandBy,expandBy},dimension);
+			DistanceTransform.binaryTransform(ecsPredictionsExpandedBinarized, distanceFromExpandedEcs,
+					DISTANCE_TYPE.EUCLIDIAN);
+			IntervalView<FloatType> distanceFromEcs = Views.offsetInterval(distanceFromExpandedEcs,
+					new long[] { expandBy, expandBy, expandBy }, dimension);
 
 			// Read in plasma membrane data
 			final N5Reader plasmaMembraneReaderLocal = new N5FSReader(plasmaMembraneN5Path);
-			IntervalView<UnsignedLongType> plasmaMembraneData = Views.offsetInterval(Views.extendZero(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(plasmaMembraneReaderLocal, "plasma_membrane")
-						),offset, dimension);
-		
+			IntervalView<UnsignedLongType> plasmaMembraneData = Views
+					.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils
+							.open(plasmaMembraneReaderLocal, "plasma_membrane")), offset, dimension);
+
 			// Read in mask block. Mask scale differs from plasma membrane/ecs scale
 			final N5Reader n5MaskReaderLocal = new N5FSReader(maskN5Path);
-			final RandomAccessibleInterval<UnsignedByteType> mask = N5Utils.open(n5MaskReaderLocal,"/volumes/masks/foreground");
-			double scale = maskPixelResolution[0]/pixelResolution[0];
+			final RandomAccessibleInterval<UnsignedByteType> mask = N5Utils.open(n5MaskReaderLocal,
+					"/volumes/masks/foreground");
+			double scale = maskPixelResolution[0] / pixelResolution[0];
 			final RandomAccessibleInterval<UnsignedByteType> maskInterval = Views.offsetInterval(Views.extendZero(mask),
 					new long[] { (long) (offset[0] / scale), (long) (offset[1] / scale), (long) (offset[2] / scale) },
-					new long[] { (long) (dimension[0] / scale), (long) (dimension[1] / scale), (long) (dimension[2] / scale) });
-			
+					new long[] { (long) (dimension[0] / scale), (long) (dimension[1] / scale),
+							(long) (dimension[2] / scale) });
+
 			// Create cell volume image
-			final Img<UnsignedByteType> cellVolume = new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType()).create(dimension);
-			
+			final Img<UnsignedByteType> cellVolume = new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType())
+					.create(dimension);
+
 			// Get cursors and random access
 			Cursor<FloatType> distanceFromEcsCursor = distanceFromEcs.cursor();
 			Cursor<UnsignedLongType> plasmaMembraneCursor = plasmaMembraneData.cursor();
 			Cursor<UnsignedByteType> cellVolumeCursor = cellVolume.cursor();
 			RandomAccess<UnsignedByteType> maskRandomAccess = maskInterval.randomAccess();
-			
+
 			// Create cell volume
-			while(distanceFromEcsCursor.hasNext()) {
+			while (distanceFromEcsCursor.hasNext()) {
 				distanceFromEcsCursor.next();
 				plasmaMembraneCursor.next();
 				cellVolumeCursor.next();
@@ -215,20 +215,22 @@ public class SparkCellVolume {
 						(long) Math.floor(distanceFromEcsCursor.getDoublePosition(1) / scale),
 						(long) Math.floor(distanceFromEcsCursor.getDoublePosition(2) / scale) };
 				maskRandomAccess.setPosition(positionInMask);
-				
-				if(distanceFromEcsCursor.get().get()>expandBySquared && plasmaMembraneCursor.get().get()==0 && maskRandomAccess.get().get()>0) { //then it is neither pm nor ecs
+
+				if (distanceFromEcsCursor.get().get() > expandBySquared && plasmaMembraneCursor.get().get() == 0
+						&& maskRandomAccess.get().get() > 0) { // then it is neither pm nor ecs
 					cellVolumeCursor.get().set(255);
 				}
 			}
-			
+
 			// Create the output based on the current dimensions
-			final Img<UnsignedLongType> output = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType()).create(dimension);
+			final Img<UnsignedLongType> output = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
+					.create(dimension);
 
 			// Compute the connected components which returns the components along the block
 			// edges, and update the corresponding blockInformation object
-			int minimumVolumeCutoffInVoxels = (int) Math.ceil(minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
-			currentBlockInformation = SparkConnectedComponents.computeConnectedComponents(currentBlockInformation, cellVolume, output, outputDimensions,
-					blockSizeL, offset, 1, minimumVolumeCutoffInVoxels);
+			int minimumVolumeCutoffInVoxels = (int) Math.ceil(minimumVolumeCutoff / Math.pow(pixelResolution[0], 3));
+			currentBlockInformation = SparkConnectedComponents.computeConnectedComponents(currentBlockInformation,
+					cellVolume, output, outputDimensions,  new long[] { blockSize[0], blockSize[1], blockSize[2] }, offset, 1, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
 			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
@@ -242,9 +244,11 @@ public class SparkCellVolume {
 
 		return blockInformationList;
 	}
-	
+
 	/**
-	 * Take input arguments and run create cell volume by running connected components of masked region.
+	 * Take input arguments and run create cell volume by running connected
+	 * components of masked region.
+	 * 
 	 * @param args
 	 * @throws IOException
 	 * @throws InterruptedException
@@ -260,23 +264,25 @@ public class SparkCellVolume {
 		final SparkConf conf = new SparkConf().setAppName("SparkCellVolume");
 		String tempOutputN5DatasetName = "cellVolume_blockwise_temp_to_delete";
 		String finalOutputN5DatasetName = "cellVolume";
-		
-		//Create block information list
-		List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getEcsN5Path(), "ecs");
-	
-		//Run connected components
+
+		// Create block information list
+		List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getEcsN5Path(),
+				"ecs");
+
+		// Run connected components
 		JavaSparkContext sc = new JavaSparkContext(conf);
 		String outputN5Path = options.getOutputN5Path();
-		blockInformationList = blockwiseConnectedComponents(sc, options.getEcsN5Path(),options.getPlasmaMembraneN5Path(), options.getMaskN5Path(),
-				outputN5Path, tempOutputN5DatasetName, options.getMinimumVolumeCutoff(), blockInformationList);
-		blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName, options.getMinimumVolumeCutoff(),
-				blockInformationList);
-		SparkConnectedComponents.mergeConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName, finalOutputN5DatasetName, false,blockInformationList);	
+		blockInformationList = blockwiseConnectedComponents(sc, options.getEcsN5Path(),
+				options.getPlasmaMembraneN5Path(), options.getMaskN5Path(), outputN5Path, tempOutputN5DatasetName,
+				options.getMinimumVolumeCutoff(), blockInformationList);
+		blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, outputN5Path,
+				tempOutputN5DatasetName, options.getMinimumVolumeCutoff(), blockInformationList);
+		SparkConnectedComponents.mergeConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName,
+				finalOutputN5DatasetName, false, blockInformationList);
 		sc.close();
-		
+
 		List<String> directoriesToDelete = new ArrayList<String>();
 		directoriesToDelete.add(outputN5Path + "/" + tempOutputN5DatasetName);
 		SparkDirectoryDelete.deleteDirectories(conf, directoriesToDelete);
 	}
 }
-

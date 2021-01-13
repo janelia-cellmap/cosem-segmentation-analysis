@@ -57,7 +57,7 @@ public class SparkCalculateSheetnessOfContactSites {
 		@Option(name = "--inputN5Path", required = true, usage = "Input N5 path")
 		private String inputN5Path = null;
 
-		@Option(name = "--outputDirectory", required = false, usage = "Output N5 path")
+		@Option(name = "--outputDirectory", required = false, usage = "Output directory")
 		private String outputDirectory = null;
 
 		@Option(name = "--inputN5SheetnessDatasetName", required = false, usage = "Volume averaged sheetness N5 dataset")
@@ -132,28 +132,14 @@ public class SparkCalculateSheetnessOfContactSites {
 		//Acquire histograms in a blockwise manner
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		JavaRDD<SheetnessMaps> javaRDDSheetnessMaps = rdd.map(blockInformation -> {
-			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
-			long[] offset = gridBlock[0];
-			long[] dimension = gridBlock[1];
-			long[] paddedOffset = new long[] {offset[0]-1,offset[1]-1,offset[2]-1};
-			long[] paddedDimension = new long[] {dimension[0]+2,dimension[1]+2,dimension[2]+2};
+			long[] paddedOffset = blockInformation.getPaddedOffset(1);
+			long[] paddedDimension = blockInformation.getPaddedDimension(1);
 
 			//Set up random access for datasets
-			RandomAccessibleInterval<UnsignedByteType> volumeAveragedSheetness = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(n5BlockReader, volumeAveragedSheetnessDatasetName)
-					),paddedOffset, paddedDimension);
-			RandomAccessibleInterval<UnsignedLongType> contactSites = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5BlockReader, contactSiteName)
-					),paddedOffset, paddedDimension);
-			RandomAccessibleInterval<UnsignedLongType> referenceOrganelleCB = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5BlockReader, referenceOrganelleName+"_contact_boundary_temp_to_delete")
-					),paddedOffset, paddedDimension);
-
-			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA = volumeAveragedSheetness.randomAccess();
-			RandomAccess<UnsignedLongType> contactSitesRA = contactSites.randomAccess();			
-			RandomAccess<UnsignedLongType> referenceOrganelleCBRA = referenceOrganelleCB.randomAccess();			
-
+			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, volumeAveragedSheetnessDatasetName, paddedOffset, paddedDimension);
+			RandomAccess<UnsignedLongType> contactSitesRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, contactSiteName, paddedOffset, paddedDimension);
+			RandomAccess<UnsignedLongType> referenceOrganelleCBRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, referenceOrganelleName+"_contact_boundary_temp_to_delete", paddedOffset, paddedDimension);
+			
 			//Build histogram
 			SheetnessMaps sheetnessMaps = buildSheetnessMaps(paddedOffset, paddedDimension, dimensions, volumeAveragedSheetnessRA, contactSitesRA, referenceOrganelleCBRA, voxelFaceArea);
 			return sheetnessMaps;
@@ -296,7 +282,6 @@ public class SparkCalculateSheetnessOfContactSites {
 			double averageSheetnessBin = 1.0*sumAndCount.get(0)/sumAndCount.get(1);
 			String averageSheetnessString = Double.toString((averageSheetnessBin-1)/255.0+0.5/255.0);
 			organelleSheetnessWriter.append(Long.toString(organelleID)+","+averageSheetnessString+"\n");
-			//System.out.println(organelleID+" "+sumAndCount.get(1));
 		}
 		
 		organelleSheetnessWriter.flush();

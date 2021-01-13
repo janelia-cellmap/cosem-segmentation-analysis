@@ -137,51 +137,29 @@ public class SparkApplyMaskToCleanData {
 
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(blockInformation -> {
-			int padding = 1;
 			final long[] offset = blockInformation.gridBlock[0];
 			final long[] dimension = blockInformation.gridBlock[1];
-			final N5Reader n5MaskReader = new N5FSReader(datasetToUseAsMaskN5Path);
-			final N5Reader n5MaskedReader = new N5FSReader(datasetToMaskN5Path);
-			final long[] paddedOffset = blockInformation.getPaddedOffset(padding);
-			final long[] paddedDimension = blockInformation.getPaddedDimension(padding);
-
-			final RandomAccessibleInterval<T> dataToMask;
-			try {
-				dataToMask = Views.offsetInterval(
-						Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5MaskedReader, datasetNameToMask)),
-						offset, dimension);
-			} catch (Exception e) {
-				System.out.println(datasetToMaskN5Path + " " + datasetNameToMask);
-				System.out.println(Arrays.toString(offset));
-				System.out.println(Arrays.toString(dimension));
-				throw e;
-			}
-
-			final RandomAccessibleInterval<UnsignedLongType> maskData = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5MaskReader, datasetNameToUseAsMask)),
-					paddedOffset, paddedDimension);
-
-			RandomAccess<UnsignedLongType> maskDataRA = maskData.randomAccess();
+			
+			final RandomAccessibleInterval<T> dataToMask = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(datasetToMaskN5Path, datasetNameToMask, offset, dimension);
 			RandomAccess<T> dataToMaskRA = dataToMask.randomAccess();
+			RandomAccess<UnsignedLongType> maskDataRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(datasetToUseAsMaskN5Path, datasetNameToUseAsMask, offset, dimension);
 
-			for (int x = padding; x < dimension[0] + padding; x++) {
-				for (int y = padding; y < dimension[1] + padding; y++) {
-					for (int z = padding; z < dimension[2] + padding; z++) {
+			for (int x = 0; x < dimension[0]; x++) {
+				for (int y = 0; y < dimension[1]; y++) {
+					for (int z = 0; z < dimension[2]; z++) {
 						long[] pos = new long[] { x, y, z };
 						maskDataRA.setPosition(pos);
 						if (maskDataRA.get().get() > 0) {
 
 							if (!keepWithinMask) {// then use mask as regions to set to 0
-								long[] newPos = new long[] { x - padding, y - padding, z - padding };
-								dataToMaskRA.setPosition(newPos);
+								dataToMaskRA.setPosition(pos);
 								dataToMaskRA.get().setZero();
 							}
 
 						} else { // set region outside mask to 0
 
 							if (keepWithinMask) {
-								long[] newPos = new long[] { x - padding, y - padding, z - padding };
-								dataToMaskRA.setPosition(newPos);
+								dataToMaskRA.setPosition(pos);
 								dataToMaskRA.get().setZero();
 							}
 
