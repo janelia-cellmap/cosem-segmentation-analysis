@@ -267,11 +267,7 @@ public class SparkConnectedComponents {
 		final double [] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
 				
 		// Create output dataset
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
-		n5Writer.createGroup(outputN5DatasetName);
-		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize, DataType.UINT64, attributes.getCompression());
-		n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
-		n5Writer.setAttribute(outputN5DatasetName, "offset", IOHelper.getOffset(n5Reader, inputN5DatasetName));
+		SparkCosemHelper.createDatasetUsingTemplateDataset(inputN5Path, inputN5DatasetName, outputN5Path, outputN5DatasetName, DataType.UINT64);
 		
 		// Set up rdd to parallelize over blockInformation list and run RDD, which will
 		// return updated block information containing list of components on the edge of
@@ -288,9 +284,7 @@ public class SparkConnectedComponents {
 			RandomAccessibleInterval<UnsignedByteType> sourceInterval = null;
 			if(findHoles) {
 				//If doing hole filling, need to set 0s to values for connected components
-				RandomAccessibleInterval<UnsignedLongType> connectedComponents = Views.offsetInterval(Views.extendZero(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)
-						),offset, dimension);	
+				RandomAccessibleInterval<UnsignedLongType> connectedComponents = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
 				sourceInterval = Converters.convert(connectedComponents,
 						(a, b) -> b.set(a.getLong()==0 ? 255 : 0 ), new UnsignedByteType());
 			}
@@ -313,9 +307,7 @@ public class SparkConnectedComponents {
 					
 				}
 				else {
-					sourceInterval = Views.offsetInterval(Views.extendZero(
-							(RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)
-							),offset, dimension);
+					sourceInterval = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
 				}
 
 				if(maskN5PathName != null) {
@@ -594,20 +586,9 @@ public class SparkConnectedComponents {
 			final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, boolean onlyKeepLargestComponent,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		// Set up reader to get n5 attributes
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
-		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
-		final int[] blockSize = attributes.getBlockSize();
-		final long[] outputDimensions = attributes.getDimensions();
-
 		// Set up writer for output
-		final N5Writer n5Writer = new N5FSWriter(inputN5Path);
-		n5Writer.createGroup(outputN5DatasetName);
-		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize,
-				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
-		n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, inputN5DatasetName)));
-		n5Writer.setAttribute(outputN5DatasetName, "offset", IOHelper.getOffset(n5Reader, inputN5DatasetName));
-
+		SparkCosemHelper.createDatasetUsingTemplateDataset(inputN5Path, inputN5DatasetName, inputN5Path, outputN5DatasetName);
+		
 		// Set up and run rdd to relabel objects and write out blocks
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(currentBlockInformation -> {
@@ -618,10 +599,7 @@ public class SparkConnectedComponents {
 			final Map<Long, Long> edgeComponentIDtoRootIDmap = currentBlockInformation.edgeComponentIDtoRootIDmap;
 
 			// Read in source data
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
-			final RandomAccessibleInterval<UnsignedLongType> sourceInterval = Views.offsetInterval(Views.extendZero(
-					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),
-					offset, dimension);
+			final RandomAccessibleInterval<UnsignedLongType> sourceInterval = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
 
 			//Relabel objects
 			Cursor<UnsignedLongType> sourceCursor = Views.flatIterable(sourceInterval).cursor();

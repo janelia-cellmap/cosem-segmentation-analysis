@@ -164,9 +164,7 @@ public class SparkCellVolume {
 			long[] paddedDimension = currentBlockInformation.getPaddedDimension(expandBy);
 
 			// Read in ecs data and calculate distance transform, used for expansion
-			final N5Reader ecsReaderLocal = new N5FSReader(ecsN5Path);
-			RandomAccessibleInterval<UnsignedByteType> ecsPredictionsExpanded = Views.offsetInterval(
-					Views.extendZero((RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(ecsReaderLocal, "ecs")),
+			RandomAccessibleInterval<UnsignedByteType> ecsPredictionsExpanded = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(ecsN5Path, "ecs",
 					paddedOffset, paddedDimension);
 
 			final RandomAccessibleInterval<NativeBoolType> ecsPredictionsExpandedBinarized = Converters
@@ -179,33 +177,22 @@ public class SparkCellVolume {
 					DISTANCE_TYPE.EUCLIDIAN);
 			IntervalView<FloatType> distanceFromEcs = Views.offsetInterval(distanceFromExpandedEcs,
 					new long[] { expandBy, expandBy, expandBy }, dimension);
+			Cursor<FloatType> distanceFromEcsCursor = distanceFromEcs.cursor();
 
 			// Read in plasma membrane data
-			final N5Reader plasmaMembraneReaderLocal = new N5FSReader(plasmaMembraneN5Path);
-			IntervalView<UnsignedLongType> plasmaMembraneData = Views
-					.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils
-							.open(plasmaMembraneReaderLocal, "plasma_membrane")), offset, dimension);
+			Cursor<UnsignedLongType> plasmaMembraneCursor = SparkCosemHelper.getOffsetIntervalExtendZeroC(plasmaMembraneN5Path, "plasma_membrane", offset, dimension);
 
 			// Read in mask block. Mask scale differs from plasma membrane/ecs scale
-			final N5Reader n5MaskReaderLocal = new N5FSReader(maskN5Path);
-			final RandomAccessibleInterval<UnsignedByteType> mask = N5Utils.open(n5MaskReaderLocal,
-					"/volumes/masks/foreground");
 			double scale = maskPixelResolution[0] / pixelResolution[0];
-			final RandomAccessibleInterval<UnsignedByteType> maskInterval = Views.offsetInterval(Views.extendZero(mask),
-					new long[] { (long) (offset[0] / scale), (long) (offset[1] / scale), (long) (offset[2] / scale) },
-					new long[] { (long) (dimension[0] / scale), (long) (dimension[1] / scale),
-							(long) (dimension[2] / scale) });
+			long [] maskOffset = new long[] { (long) (offset[0] / scale), (long) (offset[1] / scale), (long) (offset[2] / scale) };
+			long [] maskDimension = new long[] { (long) (dimension[0] / scale), (long) (dimension[1] / scale), (long) (dimension[2] / scale) };
+			final RandomAccess<UnsignedByteType> maskRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(maskN5Path, "/volumes/masks/foreground", maskOffset, maskDimension);
 
 			// Create cell volume image
 			final Img<UnsignedByteType> cellVolume = new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType())
 					.create(dimension);
-
-			// Get cursors and random access
-			Cursor<FloatType> distanceFromEcsCursor = distanceFromEcs.cursor();
-			Cursor<UnsignedLongType> plasmaMembraneCursor = plasmaMembraneData.cursor();
 			Cursor<UnsignedByteType> cellVolumeCursor = cellVolume.cursor();
-			RandomAccess<UnsignedByteType> maskRandomAccess = maskInterval.randomAccess();
-
+			
 			// Create cell volume
 			while (distanceFromEcsCursor.hasNext()) {
 				distanceFromEcsCursor.next();
@@ -214,10 +201,10 @@ public class SparkCellVolume {
 				final long[] positionInMask = { (long) Math.floor(distanceFromEcsCursor.getDoublePosition(0) / scale),
 						(long) Math.floor(distanceFromEcsCursor.getDoublePosition(1) / scale),
 						(long) Math.floor(distanceFromEcsCursor.getDoublePosition(2) / scale) };
-				maskRandomAccess.setPosition(positionInMask);
+				maskRA.setPosition(positionInMask);
 
 				if (distanceFromEcsCursor.get().get() > expandBySquared && plasmaMembraneCursor.get().get() == 0
-						&& maskRandomAccess.get().get() > 0) { // then it is neither pm nor ecs
+						&& maskRA.get().get() > 0) { // then it is neither pm nor ecs
 					cellVolumeCursor.get().set(255);
 				}
 			}

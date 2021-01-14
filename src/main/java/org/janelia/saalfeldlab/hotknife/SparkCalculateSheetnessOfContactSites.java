@@ -46,7 +46,9 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.Views;
 
 /**
- * Calculate sheetness at contact sites. Outputs file with histogram of sheetness vs surface area at contact sites based on sheetness in inputN5SheetnessDatasetName
+ * Calculate sheetness at contact sites. Outputs file with histogram of
+ * sheetness vs surface area at contact sites based on sheetness in
+ * inputN5SheetnessDatasetName
  *
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
@@ -62,10 +64,9 @@ public class SparkCalculateSheetnessOfContactSites {
 
 		@Option(name = "--inputN5SheetnessDatasetName", required = false, usage = "Volume averaged sheetness N5 dataset")
 		private String inputN5SheetnessDatasetName = null;
-		
+
 		@Option(name = "--inputN5ContactSiteDatasetName", required = false, usage = "Contact site N5 dataset")
 		private String inputN5ContactSiteDatasetName = null;
-		
 
 		public Options(final String[] args) {
 			final CmdLineParser parser = new CmdLineParser(this);
@@ -76,7 +77,7 @@ public class SparkCalculateSheetnessOfContactSites {
 				parser.printUsage(System.err);
 			}
 		}
-		
+
 		public String getInputN5Path() {
 			return inputN5Path;
 		}
@@ -84,226 +85,242 @@ public class SparkCalculateSheetnessOfContactSites {
 		public String getInputN5SheetnessDatasetName() {
 			return inputN5SheetnessDatasetName;
 		}
-		
+
 		public String getInputN5ContactSiteDatasetName() {
 			return inputN5ContactSiteDatasetName;
 		}
-		
+
 		public String getOutputDirectory() {
-			if(outputDirectory == null) {
-				outputDirectory = inputN5Path.split(".n5")[0]+"_results";
+			if (outputDirectory == null) {
+				outputDirectory = inputN5Path.split(".n5")[0] + "_results";
 			}
 			return outputDirectory;
 		}
-		
-		
 
 	}
-	
+
 	/**
-	 * Calculates histograms of the sheetness of the desired contact site surface voxels.
+	 * Calculates histograms of the sheetness of the desired contact site surface
+	 * voxels.
 	 * 
-	 * @param sc									Spark context
-	 * @param n5Path								Input N5 path
-	 * @param volumeAveragedSheetnessDatasetName	Dataset name for volume averaged sheetness
-	 * @param contactSiteName						Dataset name corresponding to desired contact sites
-	 * @param blockInformationList					Block information list
-	 * @return										Map of histogram data
+	 * @param sc                                 Spark context
+	 * @param n5Path                             Input N5 path
+	 * @param volumeAveragedSheetnessDatasetName Dataset name for volume averaged
+	 *                                           sheetness
+	 * @param contactSiteName                    Dataset name corresponding to
+	 *                                           desired contact sites
+	 * @param referenceOrganelleName             Organelle for which sheetness was calculated                   
+	 * @param blockInformationList               Block information list
+	 * @return Map of histogram data
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final SheetnessMaps getContactSiteAndOrganelleSheetness(
-			final JavaSparkContext sc,
-			final String n5Path,
-			final String volumeAveragedSheetnessDatasetName,
-			final String contactSiteName,
-			final String referenceOrganelleName,
-			final List<BlockInformation> blockInformationList) throws IOException {
+	public static final SheetnessMaps getContactSiteAndOrganelleSheetness(final JavaSparkContext sc,
+			final String n5Path, final String volumeAveragedSheetnessDatasetName, final String contactSiteName,
+			final String referenceOrganelleName, final List<BlockInformation> blockInformationList) throws IOException {
 
-		
-		//Set up reader and get information about dataset
+		// Set up reader and get information about dataset
 		final N5Reader n5Reader = new N5FSReader(n5Path);
-		double [] pixelResolution = IOHelper.getResolution(n5Reader, volumeAveragedSheetnessDatasetName);
-		double voxelFaceArea = pixelResolution[0]*pixelResolution[1];
-		
+		double[] pixelResolution = IOHelper.getResolution(n5Reader, volumeAveragedSheetnessDatasetName);
+		double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
+
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(volumeAveragedSheetnessDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 
-		//Acquire histograms in a blockwise manner
+		// Acquire histograms in a blockwise manner
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		JavaRDD<SheetnessMaps> javaRDDSheetnessMaps = rdd.map(blockInformation -> {
 			long[] paddedOffset = blockInformation.getPaddedOffset(1);
 			long[] paddedDimension = blockInformation.getPaddedDimension(1);
 
-			//Set up random access for datasets
-			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, volumeAveragedSheetnessDatasetName, paddedOffset, paddedDimension);
-			RandomAccess<UnsignedLongType> contactSitesRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, contactSiteName, paddedOffset, paddedDimension);
-			RandomAccess<UnsignedLongType> referenceOrganelleCBRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path, referenceOrganelleName+"_contact_boundary_temp_to_delete", paddedOffset, paddedDimension);
-			
-			//Build histogram
-			SheetnessMaps sheetnessMaps = buildSheetnessMaps(paddedOffset, paddedDimension, dimensions, volumeAveragedSheetnessRA, contactSitesRA, referenceOrganelleCBRA, voxelFaceArea);
+			// Set up random access for datasets
+			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(
+					n5Path, volumeAveragedSheetnessDatasetName, paddedOffset, paddedDimension);
+			RandomAccess<UnsignedLongType> contactSitesRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path,
+					contactSiteName, paddedOffset, paddedDimension);
+			RandomAccess<UnsignedLongType> referenceOrganelleCBRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(
+					n5Path, referenceOrganelleName + "_contact_boundary_temp_to_delete", paddedOffset, paddedDimension);
+
+			// Build histogram
+			SheetnessMaps sheetnessMaps = buildSheetnessMaps(paddedOffset, paddedDimension, dimensions,
+					volumeAveragedSheetnessRA, contactSitesRA, referenceOrganelleCBRA, voxelFaceArea);
 			return sheetnessMaps;
 		});
-		
-		//Collect histograms
-		SheetnessMaps sheetnessMaps = javaRDDSheetnessMaps.reduce((a,b) -> {
-			a.merge(b); 
+
+		// Collect histograms
+		SheetnessMaps sheetnessMaps = javaRDDSheetnessMaps.reduce((a, b) -> {
+			a.merge(b);
 			return a;
 		});
-		
+
 		return sheetnessMaps;
 	}
-	
+
 	@SuppressWarnings("serial")
-	static class SheetnessMaps implements Serializable{
+	static class SheetnessMaps implements Serializable {
 		public Map<Integer, Double> sheetnessAndSurfaceAreaHistogram;
-		public Map<Long,List<Integer>> organelleSheetnessMap;
-		public Map<Long,List<Integer>> contactSiteSheetnessMap;
-		
-		SheetnessMaps(){
-			sheetnessAndSurfaceAreaHistogram = new HashMap<Integer,Double>();
-			organelleSheetnessMap = new HashMap<Long,List<Integer>>();
-			contactSiteSheetnessMap = new HashMap<Long,List<Integer>>();
+		public Map<Long, List<Integer>> organelleSheetnessMap;
+		public Map<Long, List<Integer>> contactSiteSheetnessMap;
+
+		SheetnessMaps() {
+			sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
+			organelleSheetnessMap = new HashMap<Long, List<Integer>>();
+			contactSiteSheetnessMap = new HashMap<Long, List<Integer>>();
 		}
-		
-		SheetnessMaps(Map<Integer,Double> sheetnessAndSurfaceAreaHistogram, Map<Long,List<Integer>> organelleSheetnessMap, Map<Long,List<Integer>> contactSiteSheetnessMap){
+
+		SheetnessMaps(Map<Integer, Double> sheetnessAndSurfaceAreaHistogram,
+				Map<Long, List<Integer>> organelleSheetnessMap, Map<Long, List<Integer>> contactSiteSheetnessMap) {
 			this.sheetnessAndSurfaceAreaHistogram = sheetnessAndSurfaceAreaHistogram;
 			this.organelleSheetnessMap = organelleSheetnessMap;
 			this.contactSiteSheetnessMap = contactSiteSheetnessMap;
 		}
-		
-		public void merge(SheetnessMaps newSheetnessMaps){
-			for(Entry<Integer,Double> entry : newSheetnessMaps.sheetnessAndSurfaceAreaHistogram.entrySet())
-				sheetnessAndSurfaceAreaHistogram.put(entry.getKey(), sheetnessAndSurfaceAreaHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue() );
-			
-			for(Entry<Long,List<Integer>> entry : newSheetnessMaps.organelleSheetnessMap.entrySet()) {
+
+		public void merge(SheetnessMaps newSheetnessMaps) {
+			for (Entry<Integer, Double> entry : newSheetnessMaps.sheetnessAndSurfaceAreaHistogram.entrySet())
+				sheetnessAndSurfaceAreaHistogram.put(entry.getKey(),
+						sheetnessAndSurfaceAreaHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue());
+
+			for (Entry<Long, List<Integer>> entry : newSheetnessMaps.organelleSheetnessMap.entrySet()) {
 				Long organelleID = entry.getKey();
 				List<Integer> newSumAndCount = entry.getValue();
-				
-				List<Integer> currentSumAndCount = organelleSheetnessMap.getOrDefault(organelleID, Arrays.asList(0,0));
-				currentSumAndCount.set(0, currentSumAndCount.get(0)+newSumAndCount.get(0));
-				currentSumAndCount.set(1, currentSumAndCount.get(1)+newSumAndCount.get(1));
-				organelleSheetnessMap.put(organelleID, currentSumAndCount);			
+
+				List<Integer> currentSumAndCount = organelleSheetnessMap.getOrDefault(organelleID, Arrays.asList(0, 0));
+				currentSumAndCount.set(0, currentSumAndCount.get(0) + newSumAndCount.get(0));
+				currentSumAndCount.set(1, currentSumAndCount.get(1) + newSumAndCount.get(1));
+				organelleSheetnessMap.put(organelleID, currentSumAndCount);
 			}
-			
-			for(Entry<Long,List<Integer>> entry : newSheetnessMaps.contactSiteSheetnessMap.entrySet()) {
+
+			for (Entry<Long, List<Integer>> entry : newSheetnessMaps.contactSiteSheetnessMap.entrySet()) {
 				Long contactSiteID = entry.getKey();
 				List<Integer> newSumAndCount = entry.getValue();
-				
-				List<Integer> currentSumAndCount = contactSiteSheetnessMap.getOrDefault(contactSiteID, Arrays.asList(0,0));
-				currentSumAndCount.set(0, currentSumAndCount.get(0)+newSumAndCount.get(0));
-				currentSumAndCount.set(1, currentSumAndCount.get(1)+newSumAndCount.get(1));
-				contactSiteSheetnessMap.put(contactSiteID, currentSumAndCount);			
+
+				List<Integer> currentSumAndCount = contactSiteSheetnessMap.getOrDefault(contactSiteID,
+						Arrays.asList(0, 0));
+				currentSumAndCount.set(0, currentSumAndCount.get(0) + newSumAndCount.get(0));
+				currentSumAndCount.set(1, currentSumAndCount.get(1) + newSumAndCount.get(1));
+				contactSiteSheetnessMap.put(contactSiteID, currentSumAndCount);
 			}
 		}
 	}
-	
-	/**
-	 * Loops over voxels to build up a histogram of the sheetness of the volume averaged sheetness at contact sites
-	 * 
-	 * @param paddedDimension			Padded dimensions of block
-	 * @param volumeAveragedSheetnessRA Random access for volume averaged sheetness dataset
-	 * @param contactSitesRA			Random access for contact site dataset
-	 * @param voxelFaceArea				Surface area of voxel face
-	 * @return							Map containing the histogram data
-	 */
-	public static SheetnessMaps buildSheetnessMaps(long [] paddedOffset, long[] paddedDimension, long [] dimensions, RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA, RandomAccess<UnsignedLongType> contactSitesRA, RandomAccess<UnsignedLongType> referenceOrganelleCBRA, double voxelFaceArea){
-		Map<Integer,Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer,Double>();
-		Map<Long,List<Integer>> organelleSheetnessMap = new HashMap<Long,List<Integer>>();
-		Map<Long,List<Integer>> contactSiteSheetnessMap = new HashMap<Long,List<Integer>>();
 
-		for(long x=1; x<paddedDimension[0]-1;x++) {
-			for(long y=1; y<paddedDimension[1]-1;y++) {
-				for(long z=1; z<paddedDimension[2]-1;z++) {
-					long [] pos = new long[]{x,y,z};
+	/**
+	 * Loops over voxels to build up a histogram of the sheetness of the volume
+	 * averaged sheetness at contact sites
+	 * 
+	 * @param paddedDimension           Padded dimensions of block
+	 * @param volumeAveragedSheetnessRA Random access for volume averaged sheetness
+	 *                                  dataset
+	 * @param contactSitesRA            Random access for contact site dataset
+	 * @param referenceOrganelleCBRA	Reference organelle contact boundary random access
+	 * @param voxelFaceArea             Surface area of voxel face
+	 * @return Map containing the histogram data
+	 */
+	public static SheetnessMaps buildSheetnessMaps(long[] paddedOffset, long[] paddedDimension, long[] dimensions,
+			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA, RandomAccess<UnsignedLongType> contactSitesRA,
+			RandomAccess<UnsignedLongType> referenceOrganelleCBRA, double voxelFaceArea) {
+		Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
+		Map<Long, List<Integer>> organelleSheetnessMap = new HashMap<Long, List<Integer>>();
+		Map<Long, List<Integer>> contactSiteSheetnessMap = new HashMap<Long, List<Integer>>();
+
+		for (long x = 1; x < paddedDimension[0] - 1; x++) {
+			for (long y = 1; y < paddedDimension[1] - 1; y++) {
+				for (long z = 1; z < paddedDimension[2] - 1; z++) {
+					long[] pos = new long[] { x, y, z };
 					volumeAveragedSheetnessRA.setPosition(pos);
 					contactSitesRA.setPosition(pos);
 					int sheetnessMeasureBin = volumeAveragedSheetnessRA.get().get();
 					long contactSiteID = contactSitesRA.get().get();
-					
-					if(sheetnessMeasureBin>0 && contactSiteID>0) {//Then is on surface and contact site
-						int faces = SparkCosemHelper.getSurfaceAreaContributionOfVoxelInFaces(volumeAveragedSheetnessRA,paddedOffset,dimensions);
-						if(faces>0) {
-							sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin, sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin,0.0)+faces*voxelFaceArea);
+
+					if (sheetnessMeasureBin > 0 && contactSiteID > 0) {// Then is on surface and contact site
+						int faces = SparkCosemHelper.getSurfaceAreaContributionOfVoxelInFaces(volumeAveragedSheetnessRA,
+								paddedOffset, dimensions);
+						if (faces > 0) {
+							sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin,
+									sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin, 0.0)
+											+ faces * voxelFaceArea);
 						}
-						
+
 						referenceOrganelleCBRA.setPosition(pos);
 						long organelleID = referenceOrganelleCBRA.get().get();
-						
-						List<Integer> sumAndCount = organelleSheetnessMap.getOrDefault(organelleID, Arrays.asList(0,0));
-						sumAndCount.set(0, sumAndCount.get(0)+sheetnessMeasureBin);
-						sumAndCount.set(1, sumAndCount.get(1)+1);
-						organelleSheetnessMap.put(organelleID,sumAndCount);
-						
-						sumAndCount = contactSiteSheetnessMap.getOrDefault(contactSiteID, Arrays.asList(0,0));
-						sumAndCount.set(0, sumAndCount.get(0)+sheetnessMeasureBin);
-						sumAndCount.set(1, sumAndCount.get(1)+1);
-						contactSiteSheetnessMap.put(contactSiteID,sumAndCount);
+
+						List<Integer> sumAndCount = organelleSheetnessMap.getOrDefault(organelleID,
+								Arrays.asList(0, 0));
+						sumAndCount.set(0, sumAndCount.get(0) + sheetnessMeasureBin);
+						sumAndCount.set(1, sumAndCount.get(1) + 1);
+						organelleSheetnessMap.put(organelleID, sumAndCount);
+
+						sumAndCount = contactSiteSheetnessMap.getOrDefault(contactSiteID, Arrays.asList(0, 0));
+						sumAndCount.set(0, sumAndCount.get(0) + sheetnessMeasureBin);
+						sumAndCount.set(1, sumAndCount.get(1) + 1);
+						contactSiteSheetnessMap.put(contactSiteID, sumAndCount);
 					}
 				}
 			}
 		}
-		return new SheetnessMaps(sheetnessAndSurfaceAreaHistogram,organelleSheetnessMap,contactSiteSheetnessMap);
-		
+		return new SheetnessMaps(sheetnessAndSurfaceAreaHistogram, organelleSheetnessMap, contactSiteSheetnessMap);
+
 	}
-	
+
 	/**
 	 * 
-	 * @param sheetnessAndSurfaceAreaHistogram	Histogram of sheetness vs surface area as map
-	 * @param outputDirectory					Directory to write results to
-	 * @param filePrefix						Prefix for file name
+	 * @param sheetnessAndSurfaceAreaHistogram Histogram of sheetness vs surface
+	 *                                         area as map
+	 * @param outputDirectory                  Directory to write results to
+	 * @param filePrefix                       Prefix for file name
 	 * @throws IOException
 	 */
-	public static void writeData( SheetnessMaps sheetnessMaps, String outputDirectory, String filePrefix, String referenceOrganelleName) throws IOException {
-		if (! new File(outputDirectory).exists()){
+	public static void writeData(SheetnessMaps sheetnessMaps, String outputDirectory, String filePrefix,
+			String referenceOrganelleName) throws IOException {
+		if (!new File(outputDirectory).exists()) {
 			new File(outputDirectory).mkdirs();
-	    }
-		
+		}
+
 		Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = sheetnessMaps.sheetnessAndSurfaceAreaHistogram;
-		FileWriter sheetnessVolumeAndAreaHistogramFW = new FileWriter(outputDirectory+"/"+filePrefix+"_sheetnessSurfaceAreaHistograms.csv");
+		FileWriter sheetnessVolumeAndAreaHistogramFW = new FileWriter(
+				outputDirectory + "/" + filePrefix + "_sheetnessSurfaceAreaHistograms.csv");
 		sheetnessVolumeAndAreaHistogramFW.append("Sheetness,Surface Area(nm^2)\n");
-				
-		for(int sheetnessBin=1;sheetnessBin<256;sheetnessBin++) {
+
+		for (int sheetnessBin = 1; sheetnessBin < 256; sheetnessBin++) {
 			double surfaceArea = sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessBin, 0.0);
-			String sheetnessBinString = Double.toString((sheetnessBin-1)/255.0+0.5/255.0);
-			sheetnessVolumeAndAreaHistogramFW.append(sheetnessBinString+","+Double.toString(surfaceArea)+"\n");
+			String sheetnessBinString = Double.toString((sheetnessBin - 1) / 255.0 + 0.5 / 255.0);
+			sheetnessVolumeAndAreaHistogramFW.append(sheetnessBinString + "," + Double.toString(surfaceArea) + "\n");
 		}
 		sheetnessVolumeAndAreaHistogramFW.flush();
 		sheetnessVolumeAndAreaHistogramFW.close();
-		
-		
+
 		Map<Long, List<Integer>> organelleSheetnessMap = sheetnessMaps.organelleSheetnessMap;
-		FileWriter organelleSheetnessWriter = new FileWriter(outputDirectory+"/"+filePrefix+"__"+referenceOrganelleName+"_sheetness.csv");
+		FileWriter organelleSheetnessWriter = new FileWriter(
+				outputDirectory + "/" + filePrefix + "__" + referenceOrganelleName + "_sheetness.csv");
 		organelleSheetnessWriter.append("Object ID,Sheetness\n");
-		
-		for(Entry<Long, List<Integer>> entry : organelleSheetnessMap.entrySet()) {
+
+		for (Entry<Long, List<Integer>> entry : organelleSheetnessMap.entrySet()) {
 			Long organelleID = entry.getKey();
 			List<Integer> sumAndCount = entry.getValue();
-			double averageSheetnessBin = 1.0*sumAndCount.get(0)/sumAndCount.get(1);
-			String averageSheetnessString = Double.toString((averageSheetnessBin-1)/255.0+0.5/255.0);
-			organelleSheetnessWriter.append(Long.toString(organelleID)+","+averageSheetnessString+"\n");
+			double averageSheetnessBin = 1.0 * sumAndCount.get(0) / sumAndCount.get(1);
+			String averageSheetnessString = Double.toString((averageSheetnessBin - 1) / 255.0 + 0.5 / 255.0);
+			organelleSheetnessWriter.append(Long.toString(organelleID) + "," + averageSheetnessString + "\n");
 		}
-		
+
 		organelleSheetnessWriter.flush();
 		organelleSheetnessWriter.close();
-		
+
 		Map<Long, List<Integer>> contactSiteSheetnessMap = sheetnessMaps.contactSiteSheetnessMap;
-		FileWriter contactSiteSheetnessWriter = new FileWriter(outputDirectory+"/"+filePrefix+"_sheetness.csv");
+		FileWriter contactSiteSheetnessWriter = new FileWriter(outputDirectory + "/" + filePrefix + "_sheetness.csv");
 		contactSiteSheetnessWriter.append("Object ID,Sheetness\n");
-		
-		for(Entry<Long, List<Integer>> entry : contactSiteSheetnessMap.entrySet()) {
+
+		for (Entry<Long, List<Integer>> entry : contactSiteSheetnessMap.entrySet()) {
 			Long contactSiteID = entry.getKey();
 			List<Integer> sumAndCount = entry.getValue();
-			double averageSheetnessBin = 1.0*sumAndCount.get(0)/sumAndCount.get(1);
-			String averageSheetnessString = Double.toString((averageSheetnessBin-1)/255.0+0.5/255.0);
-			contactSiteSheetnessWriter.append(Long.toString(contactSiteID)+","+averageSheetnessString+"\n");
+			double averageSheetnessBin = 1.0 * sumAndCount.get(0) / sumAndCount.get(1);
+			String averageSheetnessString = Double.toString((averageSheetnessBin - 1) / 255.0 + 0.5 / 255.0);
+			contactSiteSheetnessWriter.append(Long.toString(contactSiteID) + "," + averageSheetnessString + "\n");
 		}
-		
+
 		contactSiteSheetnessWriter.flush();
 		contactSiteSheetnessWriter.close();
-	
+
 	}
-	
+
 	/**
 	 * Take input args and perform analysis.
 	 * 
@@ -317,7 +334,7 @@ public class SparkCalculateSheetnessOfContactSites {
 
 		if (!options.parsedSuccessfully)
 			return;
-		
+
 		// Get all organelles
 		String[] contactSiteDatasets = { "" };
 		if (options.getInputN5ContactSiteDatasetName() != null) {
@@ -333,22 +350,23 @@ public class SparkCalculateSheetnessOfContactSites {
 		}
 
 		final SparkConf conf = new SparkConf().setAppName("SparkCalculateSheetnessOfContactSites");
-		
-		//Create block information list
-		List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getInputN5Path(),
-			options.getInputN5SheetnessDatasetName());
-		for(String contactSiteDataset : contactSiteDatasets) {
-			String [] contactSiteDatasetSplit = contactSiteDataset.split("_to_");
+
+		// Create block information list
+		List<BlockInformation> blockInformationList = BlockInformation
+				.buildBlockInformationList(options.getInputN5Path(), options.getInputN5SheetnessDatasetName());
+		for (String contactSiteDataset : contactSiteDatasets) {
+			String[] contactSiteDatasetSplit = contactSiteDataset.split("_to_");
 			String referenceOrganelleName = contactSiteDatasetSplit[contactSiteDatasetSplit.length - 1];
-			referenceOrganelleName = referenceOrganelleName.substring(0,referenceOrganelleName.length() - 3); //-3 to get rid of _cc
-			
+			referenceOrganelleName = referenceOrganelleName.substring(0, referenceOrganelleName.length() - 3); 
+			// -3 to get rid of _cc
 			JavaSparkContext sc = new JavaSparkContext(conf);
-			SheetnessMaps sheetnessMaps = getContactSiteAndOrganelleSheetness(sc, options.getInputN5Path(), options.getInputN5SheetnessDatasetName(), contactSiteDataset, referenceOrganelleName, blockInformationList);
-			writeData(sheetnessMaps, options.getOutputDirectory(),  contactSiteDataset,referenceOrganelleName);
+			SheetnessMaps sheetnessMaps = getContactSiteAndOrganelleSheetness(sc, options.getInputN5Path(),
+					options.getInputN5SheetnessDatasetName(), contactSiteDataset, referenceOrganelleName,
+					blockInformationList);
+			writeData(sheetnessMaps, options.getOutputDirectory(), contactSiteDataset, referenceOrganelleName);
 			sc.close();
 		}
 
 	}
-	
-}
 
+}
