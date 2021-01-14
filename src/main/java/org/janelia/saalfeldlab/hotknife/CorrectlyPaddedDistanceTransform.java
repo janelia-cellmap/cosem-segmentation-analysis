@@ -93,10 +93,11 @@ public class CorrectlyPaddedDistanceTransform {
 
 				final IntervalView<FloatType> topSlice = Views.hyperSlice(insideBlock, d, 1);
 				for (final FloatType t : topSlice)
-					if (t.get() >= squareMaxPadding - shellPadding) { // Subtract one from squareMaxPadding because we
-																		// want to ensure that if we have a shell in
-																		// later calculations for finding surface
-																		// points, we can access valid points
+					if (t.get() >= squareMaxPadding - shellPadding) { 
+					    // Subtract one from squareMaxPadding because we
+					    // want to ensure that if we have a shell in
+					    // later calculations for finding surface
+					    // points, we can access valid points
 						paddingIsTooSmall = true;
 						continue A;
 					}
