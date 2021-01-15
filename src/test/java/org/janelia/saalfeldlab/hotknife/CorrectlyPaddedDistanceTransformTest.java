@@ -18,7 +18,7 @@ public class CorrectlyPaddedDistanceTransformTest {
 	public void testGetCorrectlyPaddedDistanceTransform() {
 	    long [] offset= {0,0,0};
 	    long [] dimension = {10,10,10};
-	    Img<UnsignedByteType> halfFull = TestImageMaker.halfFull(dimension);
+	    Img<UnsignedByteType> halfFull = TestImageMaker.halfFull(dimension, DataType.UINT8);
 	    CorrectlyPaddedDistanceTransform cpdt = new CorrectlyPaddedDistanceTransform(halfFull, offset, dimension, 0);
 	    
 	    //TODO: Compare actual output array

@@ -25,11 +25,13 @@ import java.util.Set;
 
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.GzipCompression;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 
+import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.labeling.ConnectedComponentAnalysis;
@@ -46,22 +48,25 @@ import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.NumericType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
+import net.imglib2.util.Util;
 
 public class TestImageMaker {
-    public static <T extends IntegerType<T>> Img<T> customImage(int [][][] voxelValues) {
-	long[] dimensions = new long [] {voxelValues.length, voxelValues[0].length, voxelValues[0][0].length};	
-	
-	Img<T> output = null;
-		output = (Img<T>) new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType()).create(dimensions);
-
-	/*if(dataType == DataType.UINT64) {
-    		output = (Img<T>) new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType()).create(dimensions);
-	}else if(dataType == DataType.UINT8 ) {
-    		output = (Img<T>) new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType()).create(dimensions);
-	}*/
-	
+    public static long [] getDimensions(int [][][] voxelValues) {
+	return new long [] {voxelValues.length, voxelValues[0].length, voxelValues[0][0].length};
+    }
+    
+    public static <T extends IntegerType<T>> Img<T> customImage(int [][][] voxelValues, DataType dataType) {
+	long[] dimensions = getDimensions(voxelValues);
+	Img<T> output;
+	if (dataType == DataType.UINT8) {
+	    output = (Img<T>) new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType()).create(dimensions);
+	}
+	else {
+	    output = (Img<T>) new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType()).create(dimensions);
+	}
 	RandomAccess<T> outputRA = output.randomAccess();
 
 	for(int x=0; x<dimensions[0]; x++) {
@@ -72,16 +77,28 @@ public class TestImageMaker {
 		}
 	    }
 	}
-    
-	return output;
-    	
 	
+	return output;
+    }
+   
+    
+    public static <T extends IntegerType<T>> Cursor<T> customImageC(int [][][] voxelValues, DataType dataType) {
+	return (Cursor<T>) customImage(voxelValues, dataType).cursor();
     }
     
-    public static <T extends IntegerType<T>> Img<T> halfFull() {
-	return halfFull(new long[] {50, 50,50});
+    public static <T extends IntegerType<T>> RandomAccess<T> customImageRA(int [][][] voxelValues, DataType dataType) {
+	return (RandomAccess<T>) customImage(voxelValues, dataType).randomAccess();
     }
-    public static <T extends IntegerType<T>> Img<T> halfFull(long [] dimensions) {
+    
+    public static <T> RandomAccessibleInterval<T> customImageRAI(int [][][] voxelValues, DataType dataType) {
+	return (RandomAccessibleInterval<T>) customImage(voxelValues, dataType);
+    }
+    
+    public static <T extends IntegerType<T>> Img<T> halfFull(DataType dataType) {
+	return halfFull(new long[] {50, 50,50}, dataType);
+    }
+    
+    public static <T extends IntegerType<T>> Img<T> halfFull(long [] dimensions, DataType dataType) {
 	int [][][] voxelValues = new int[(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2]];
 	for(int x=0; x<dimensions[0]/2; x++) {
 	    for(int y=0; y<dimensions[1]; y++) {
@@ -91,8 +108,41 @@ public class TestImageMaker {
 	    }
 	}
 	
-	return customImage(voxelValues);
+	return customImage(voxelValues, dataType);
     }
     
+    public static final <T extends NativeType<T>> boolean compareDatasets (Cursor<T> cursorOne, Cursor<T> cursorTwo){
+	boolean areEqual = true;
+	while(cursorOne.hasNext() ) {//&& areEqual) {
+	    cursorOne.next();
+	    cursorTwo.next();
+	    if (!cursorOne.get().valueEquals(cursorTwo.get())) {
+		areEqual = false;
+		break;
+	    }
+	}
+	return areEqual;
+    }
+    
+    public static final <T extends NativeType<T>> boolean compareDatasets (Img<T> im1, Img<T> im2){
+   	Cursor<T> im1C = im1.cursor();
+   	Cursor<T> im2C = im2.cursor();
+	boolean areEqual = true;
+   	while(im1C.hasNext() ) {//&& areEqual) {
+	    im1C.next();
+	    im2C.next();
+   	    if (!im1C.get().valueEquals(im2C.get())) {
+   		areEqual = false;
+   		break;
+   	    }
+   	}
+   	return areEqual;
+       }
+    
+    public static void writeCustomImage(String n5Path, String dataset, int [][][] voxelValues, int[] blockSize, DataType dataType) throws IOException {
+	final N5Writer n5Writer = new N5FSWriter(n5Path);
+	    RandomAccessibleInterval<UnsignedLongType> rai = customImageRAI(voxelValues, dataType);
+	    N5Utils.save(rai, n5Writer, dataset, blockSize, new GzipCompression()); 
+    }
 }
 

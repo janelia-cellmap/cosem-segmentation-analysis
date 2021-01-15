@@ -90,14 +90,6 @@ public class SparkCompareDatasets {
 			final String datasetName2,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);
-
-		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName1);
-		final long[] dimensions = attributes.getDimensions();
-		final int[] blockSize = attributes.getBlockSize();
-		final int n = dimensions.length;
-				
-
 		/*
 		 * grid block size for parallelization to minimize double loading of
 		 * blocks
@@ -117,9 +109,8 @@ public class SparkCompareDatasets {
 			
 			Cursor<T> data1Cursor = data1.cursor();
 			Cursor<T> data2Cursor = data2.cursor();
-			RandomAccess<T> data1RA = data1.randomAccess();
 			boolean areEqual = true;
-			while(data1Cursor.hasNext() ) {//&& areEqual) {
+			while(data1Cursor.hasNext() ) {
 				data1Cursor.next();
 				data2Cursor.next();
 				if(!data1Cursor.get().valueEquals(data2Cursor.get())) {
@@ -164,19 +155,6 @@ public class SparkCompareDatasets {
 		return blockInformationList;
 	}
 
-	
-
-	public static void logMemory(final String context) {
-		final long freeMem = Runtime.getRuntime().freeMemory() / 1000000L;
-		final long totalMem = Runtime.getRuntime().totalMemory() / 1000000L;
-		logMsg(context + ", Total: " + totalMem + " MB, Free: " + freeMem + " MB, Delta: " + (totalMem - freeMem)
-				+ " MB");
-	}
-
-	public static void logMsg(final String msg) {
-		final String ts = new SimpleDateFormat("HH:mm:ss").format(new Date()) + " ";
-		System.out.println(ts + " " + msg);
-	}
 	
 	public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
 

@@ -79,7 +79,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		@Option(name = "--outputN5Path", required = false, usage = "Output N5 path")
 		private String outputN5Path = null;
 
-		@Option(name = "--calculateAreaAndVolumeFromExistingDataset", required = false, usage = "Output N5 path")
+		@Option(name = "--calculateAreaAndVolumeFromExistingDataset", required = false, usage = "Use existing volume averaged sheetness")
 		private boolean calculateAreaAndVolumeFromExistingDataset = false;
 
 		public Options(final String[] args) {
