@@ -1674,6 +1674,74 @@ public class SparkContactSites {
 	return false;
     }
 
+    public static void setupSparkAndCalculateContactSites(String inputN5Path, String outputN5Path, String inputN5DatasetName, String originalInputPairs, double contactDistance, double minimumVolumeCutoff, boolean doSelfContacts, boolean skipGeneratingContactBoundaries, boolean doNaiveMethod) throws IOException {
+	final SparkConf conf = new SparkConf().setAppName("SparkContactSites");
+
+	// Get all organelles
+	String[] organelles = { "" };
+
+	List<String[]> customOrganellePairs = new ArrayList<String[]>();
+	if (originalInputPairs != null) {
+	    String[] inputPairs = originalInputPairs.split(",");
+	    HashSet<String> organelleSet = new HashSet<String>();
+	    for (int i = 0; i < inputPairs.length; i++) {
+		String organelle1 = inputPairs[i].split("_to_")[0];
+		String organelle2 = inputPairs[i].split("_to_")[1];
+		organelleSet.add(organelle1);
+		organelleSet.add(organelle2);
+		customOrganellePairs.add(new String[] { organelle1, organelle2 });
+	    }
+	    organelles = organelleSet.toArray(organelles);
+	} else {
+	    if (inputN5DatasetName != null) {
+		organelles = inputN5DatasetName.split(",");
+	    } else {
+		File file = new File(inputN5Path);
+		organelles = file.list(new FilenameFilter() {
+		    @Override
+		    public boolean accept(File current, String name) {
+			return new File(current, name).isDirectory();
+		    }
+		});
+	    }
+
+	}
+	// First calculate the object contact boundaries
+	for (String organelle : organelles) {
+	    File contactBoundary = new File(
+		    outputN5Path + "/" + organelle + "_contact_boundary_temp_to_delete");
+	    File contactBoundaryPairs = new File(
+		    outputN5Path + "/" + organelle + "_pairs_contact_boundary_temp_to_delete");
+	    boolean skipGeneratingCurrentContactBoundaries = skipGeneratingContactBoundaries
+		    && contactBoundary.isDirectory()
+		    && (doSelfContacts ? contactBoundaryPairs.isDirectory() : true);
+	    if (!skipGeneratingCurrentContactBoundaries) {
+
+		JavaSparkContext sc = new JavaSparkContext(conf);
+		List<BlockInformation> blockInformationList = BlockInformation
+			.buildBlockInformationList(inputN5Path, organelle);
+		calculateObjectContactBoundaries(sc, inputN5Path, organelle, outputN5Path,
+			contactDistance, doSelfContacts, blockInformationList);
+		sc.close();
+	    }
+	}
+	System.out.println("finished boundaries");
+
+	boolean doLM = false;
+	if (customOrganellePairs.size() > 0) {
+	    for (String[] customOrganellePair : customOrganellePairs) {
+		calculateContactSites(conf, customOrganellePair, doSelfContacts,
+			minimumVolumeCutoff, contactDistance, doLM, inputN5Path,
+			outputN5Path, doNaiveMethod);
+	    }
+	} else {
+	    calculateContactSites(conf, organelles, doSelfContacts, minimumVolumeCutoff,
+		    contactDistance, doLM, inputN5Path, outputN5Path,
+		    doNaiveMethod);
+	}
+	System.out.println("finished contact sites");
+    }
+
     /**
      * Perform entire contact site analysis: generating contact boundaries and
      * finding contact site connected components.
@@ -1687,72 +1755,18 @@ public class SparkContactSites {
 	final Options options = new Options(args);
 	if (!options.parsedSuccessfully)
 	    return;
-	final SparkConf conf = new SparkConf().setAppName("SparkContactSites");
-
-	// Get all organelles
-	String[] organelles = { "" };
-
-	List<String[]> customOrganellePairs = new ArrayList<String[]>();
-	if (options.getInputPairs() != null) {
-	    String[] inputPairs = options.getInputPairs().split(",");
-	    HashSet<String> organelleSet = new HashSet<String>();
-	    for (int i = 0; i < inputPairs.length; i++) {
-		String organelle1 = inputPairs[i].split("_to_")[0];
-		String organelle2 = inputPairs[i].split("_to_")[1];
-		organelleSet.add(organelle1);
-		organelleSet.add(organelle2);
-		customOrganellePairs.add(new String[] { organelle1, organelle2 });
-	    }
-	    organelles = organelleSet.toArray(organelles);
-	} else {
-	    if (options.getInputN5DatasetName() != null) {
-		organelles = options.getInputN5DatasetName().split(",");
-	    } else {
-		File file = new File(options.getInputN5Path());
-		organelles = file.list(new FilenameFilter() {
-		    @Override
-		    public boolean accept(File current, String name) {
-			return new File(current, name).isDirectory();
-		    }
-		});
-	    }
-
-	}
-
-	// First calculate the object contact boundaries
-	for (String organelle : organelles) {
-	    File contactBoundary = new File(
-		    options.getOutputN5Path() + "/" + organelle + "_contact_boundary_temp_to_delete");
-	    File contactBoundaryPairs = new File(
-		    options.getOutputN5Path() + "/" + organelle + "_pairs_contact_boundary_temp_to_delete");
-	    boolean skipGeneratingCurrentContactBoundaries = options.getSkipGeneratingContactBoundaries()
-		    && contactBoundary.isDirectory()
-		    && (options.getDoSelfContacts() ? contactBoundaryPairs.isDirectory() : true);
-	    if (!skipGeneratingCurrentContactBoundaries) {
-
-		JavaSparkContext sc = new JavaSparkContext(conf);
-		List<BlockInformation> blockInformationList = BlockInformation
-			.buildBlockInformationList(options.getInputN5Path(), organelle);
-		calculateObjectContactBoundaries(sc, options.getInputN5Path(), organelle, options.getOutputN5Path(),
-			options.getContactDistance(), options.getDoSelfContacts(), blockInformationList);
-		sc.close();
-	    }
-	}
-	System.out.println("finished boundaries");
-
-	boolean doLM = false;
-	if (customOrganellePairs.size() > 0) {
-	    for (String[] customOrganellePair : customOrganellePairs) {
-		calculateContactSites(conf, customOrganellePair, options.getDoSelfContacts(),
-			options.getMinimumVolumeCutoff(), options.getContactDistance(), doLM, options.getInputN5Path(),
-			options.getOutputN5Path(), options.getDoNaiveMethod());
-	    }
-	} else {
-	    calculateContactSites(conf, organelles, options.getDoSelfContacts(), options.getMinimumVolumeCutoff(),
-		    options.getContactDistance(), doLM, options.getInputN5Path(), options.getOutputN5Path(),
-		    options.getDoNaiveMethod());
-	}
-	System.out.println("finished contact sites");
-
+	
+	String inputN5Path = options.getInputN5Path();
+	String outputN5Path = options.getOutputN5Path();
+	String inputN5DatasetName = options.getInputN5DatasetName();
+	String originalInputPairs = options.getInputPairs();
+	double contactDistance = options.getContactDistance();
+	double minimumVolumeCutoff = options.getMinimumVolumeCutoff();
+	boolean doSelfContacts = options.getDoSelfContacts();
+	boolean skipGeneratingContactBoundaries = options.getSkipGeneratingContactBoundaries();
+	boolean doNaiveMethod = options.getDoNaiveMethod();
+	
+	setupSparkAndCalculateContactSites(inputN5Path, outputN5Path, inputN5DatasetName, originalInputPairs, contactDistance, minimumVolumeCutoff, doSelfContacts,skipGeneratingContactBoundaries,doNaiveMethod);
+	
     }
 }

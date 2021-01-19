@@ -18,11 +18,10 @@ package org.janelia.saalfeldlab.hotknife;
 
 import java.io.IOException;
 
+import org.apache.spark.SparkConf;
 import org.janelia.saalfeldlab.n5.DataType;
 
 public class TestN5Maker {
-    private static String path = "src/test/resources/images.n5";
-    private static int [] blockSize = {5,5,5};
 
     public static void createCylinderAndRectangleImage() throws IOException {
 	int [][][] voxelValues = new int [11][11][11];
@@ -41,11 +40,36 @@ public class TestN5Maker {
 		}
 	    }
 	}
-	TestImageMaker.writeCustomImage(path, "cylinderAndRectangle",voxelValues, blockSize, DataType.UINT8);
+	TestImageMaker.writeCustomImage(TestConstants.testFileLocations, "cylinderAndRectangle",voxelValues, TestConstants.blockSize, DataType.UINT8);
     }
     
+    public static void createTwoPlanesImage() throws IOException {
+   	int [][][] voxelValues = new int [11][11][11];
+   	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
+   	
+   	for(int x=0; x<11; x+=10) {
+   	    for(int y=1; y<dimensions[1]-1; y++) {
+   		for(int z=1; z<dimensions[2]-1; z++) {
+   		    if(z==0) {voxelValues[x][y][z] = 1;} //plane 1
+   		    else {voxelValues[x][y][z] = 2;} //plane 2
+   		}
+   	    }
+   	}
+   	TestImageMaker.writeCustomImage(TestConstants.testFileLocations, "twoPlanes",voxelValues, TestConstants.blockSize, DataType.UINT8); //create it as already connected components
+       }
+    
     public static final void main(final String... args) throws IOException {
+	//create basic test dataset and do connected components for it
 	createCylinderAndRectangleImage();
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("cylinderAndRectangle", TestConstants.testFileLocations, null, TestConstants.testFileLocations, "_cc", 0, 1, false, false);
+    
+	//create additional dataset for contact site testing, default as connected components
+	createTwoPlanesImage();
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("twoPlanes", TestConstants.testFileLocations, null, TestConstants.testFileLocations, "_cc", 0, 1, false, false);
+
+	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
+	SparkContactSites.setupSparkAndCalculateContactSites(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc,twoPlanes_cc", null, 10, 1, false,false,false);
+
     }
 }
 

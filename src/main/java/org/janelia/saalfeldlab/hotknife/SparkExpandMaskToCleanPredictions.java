@@ -291,7 +291,7 @@ public class SparkExpandMaskToCleanPredictions {
 			blockInformationList = BlockInformation.buildBlockInformationList(options.getDatasetToUseAsMaskN5Path(), options.getDatasetNameToUseAsMask());
 			suffix = options.getOnlyKeepLargestComponent() ? "_largestComponent" :  "_cc";
 			boolean smooth = !options.getSkipSmoothing();
-			SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow(conf, options.getDatasetNameToUseAsMask(), options.getDatasetToUseAsMaskN5Path(), null, options.getOutputN5Path(), suffix, thresholdDistance, -1, options.getOnlyKeepLargestComponent(), smooth);
+			SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow(options.getDatasetNameToUseAsMask(), options.getDatasetToUseAsMaskN5Path(), null, options.getOutputN5Path(), suffix, thresholdDistance, -1, options.getOnlyKeepLargestComponent(), smooth);
 			datasetToUseAsMaskN5Path = options.getOutputN5Path();
 		}
 		

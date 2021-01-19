@@ -57,6 +57,8 @@ public class SparkCompareDatasets {
 
 		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
 		private String inputN5Path = null;
+		@Option(name = "--inputN5Path2", required = false, usage = "second input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		private String inputN5Path2 = null;
 
 		@Option(name = "--inputN5DatasetNames", required = false, usage = "N5 dataset, e.g. /mito")
 		private String inputN5DatasetNames = null;
@@ -76,6 +78,10 @@ public class SparkCompareDatasets {
 		public String getInputN5Path() {
 			return inputN5Path;
 		}
+		
+		public String getInputN5Path2() {
+			return inputN5Path2;
+		}
 
 		public String getInputN5DatasetNames() {
 			return inputN5DatasetNames;
@@ -86,6 +92,7 @@ public class SparkCompareDatasets {
 	public static final <T extends NativeType<T>>boolean compareDatasets (
 			final JavaSparkContext sc,
 			final String n5Path,
+			final String n5Path2,
 			final String datasetName1,
 			final String datasetName2,
 			final List<BlockInformation> blockInformationList) throws IOException {
@@ -98,13 +105,14 @@ public class SparkCompareDatasets {
 		JavaRDD<Map<List<Long>,Boolean>> javaRDD = rdd.map(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
 			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader2 = new N5FSReader(n5Path2);
 			long[] offset = gridBlock[0];
 			long[] dimension = gridBlock[1];
 			
 			IntervalView<T> data1 =  Views.offsetInterval((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName1)
 					,offset, dimension);
 				
-			IntervalView<T> data2 =  Views.offsetInterval((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName2)
+			IntervalView<T> data2 =  Views.offsetInterval((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader2, datasetName2)
 					,offset, dimension);
 			
 			Cursor<T> data1Cursor = data1.cursor();
@@ -155,6 +163,35 @@ public class SparkCompareDatasets {
 		return blockInformationList;
 	}
 
+	/**
+	 * 
+	 * @param inputN5Path  Path to first dataset
+	 * @param inputN5Path2 Path to second dataset
+	 * @param datasetNames Dataset names
+	 * @return
+	 * @throws IOException
+	 */
+	public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1) throws IOException {
+	    return setupSparkAndCompare(inputN5Path1, inputN5Path2, dataset1, dataset1); //same dataset names
+	}
+
+	public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1, String dataset2) throws IOException {
+		final SparkConf conf = new SparkConf().setAppName("SparkCompareDatasets");
+			//Create block information list
+			List<BlockInformation> blockInformationList = buildBlockInformationList(inputN5Path1, dataset1);
+			JavaSparkContext sc = new JavaSparkContext(conf);
+			
+			boolean areEqual = compareDatasets(
+					sc,
+					inputN5Path1,
+					inputN5Path2,
+					dataset1,
+					dataset2,
+					blockInformationList);
+			sc.close();
+
+			return areEqual;
+	}
 	
 	public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
 
@@ -163,27 +200,12 @@ public class SparkCompareDatasets {
 		if (!options.parsedSuccessfully)
 			return;
 
-		final SparkConf conf = new SparkConf().setAppName("SparkCompareDatasets");
 
-
-		List<String> directoriesToDelete = new ArrayList<String>();
+		String inputN5Path1 = options.getInputN5Path();
+		String inputN5Path2 = options.getInputN5Path2() != null ? options.getInputN5Path2() : inputN5Path1;
 		String [] datasetNames = options.getInputN5DatasetNames().split(",");
-			//Create block information list
-			List<BlockInformation> blockInformationList = buildBlockInformationList(options.getInputN5Path(),
-				datasetNames[0]);
-			JavaSparkContext sc = new JavaSparkContext(conf);
-			
-			boolean areEqual = compareDatasets(
-					sc,
-					options.getInputN5Path(),
-					datasetNames[0],
-					datasetNames[1],
-					blockInformationList);
+		boolean areEqual = setupSparkAndCompare(inputN5Path1, inputN5Path2, datasetNames[0], datasetNames[1]);
+	
 			System.out.println("Are they equal? " + areEqual);
-			sc.close();
-		
-		//Remove temporary files
-		SparkDirectoryDelete.deleteDirectories(conf, directoriesToDelete);
-
 	}
 }

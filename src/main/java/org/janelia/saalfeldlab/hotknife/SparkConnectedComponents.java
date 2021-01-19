@@ -948,14 +948,13 @@ public class SparkConnectedComponents {
 	 * @param onlyKeepLargestComponent	Whether or not to keep only largest component
 	 * @throws IOException
 	 */
-	public static void standardConnectedComponentAnalysisWorkflow(SparkConf conf, String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent ) throws IOException {
-			standardConnectedComponentAnalysisWorkflow(conf, inputN5DatasetName, inputN5Path, maskN5Path, outputN5Path, outputN5DatasetSuffix, thresholdDistance, minimumVolumeCutoff, onlyKeepLargestComponent, true );
+	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent ) throws IOException {
+			standardConnectedComponentAnalysisWorkflow(inputN5DatasetName, inputN5Path, maskN5Path, outputN5Path, outputN5DatasetSuffix, thresholdDistance, minimumVolumeCutoff, onlyKeepLargestComponent, true );
 		}
 	
 	/**
 	 * The standard (usual) connected components workflow with option to smooth input
 	 * 
-	 * @param conf						Spark conf
 	 * @param inputN5DatasetName		Input N5 dataset name
 	 * @param inputN5Path				Input N5 path
 	 * @param maskN5Path				Mask N5 path
@@ -967,11 +966,13 @@ public class SparkConnectedComponents {
 	 * @param smooth					Whether or not to smooth input
 	 * @throws IOException
 	 */
-	public static void standardConnectedComponentAnalysisWorkflow(SparkConf conf, String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent, boolean smooth ) throws IOException {
+	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent, boolean smooth ) throws IOException {
+		final SparkConf conf = new SparkConf().setAppName("SparkConnectedComponents");
+
 		// Get all organelles
 		String[] organelles = { "" };
 		
-		double thresholdIntensityCutoff = 	128 * Math.tanh(thresholdDistance / 50) + 127;
+		double thresholdIntensityCutoff = 128 * Math.tanh(thresholdDistance / 50) + 127;
 
 		if (inputN5DatasetName!= null) {
 			organelles = inputN5DatasetName.split(",");
@@ -1041,7 +1042,6 @@ public class SparkConnectedComponents {
 		if (!options.parsedSuccessfully)
 			return;
 
-		final SparkConf conf = new SparkConf().setAppName("SparkConnectedComponents");
 		boolean smooth = ! options.getSkipSmoothing();
 		
 		double thresholdDistance = options.getThresholdDistance();
@@ -1050,7 +1050,7 @@ public class SparkConnectedComponents {
 			double x = (thresholdIntensityCutoff-127)/128.0; 
 			thresholdDistance = 50*0.5*Math.log( (1.0 + x) / (1.0 - x));
 		}
-		standardConnectedComponentAnalysisWorkflow(conf, options.getInputN5DatasetName(), options.getInputN5Path(), options.getMaskN5Path(), options.getOutputN5Path(), options.getOutputN5DatasetSuffix(), thresholdDistance, options.getMinimumVolumeCutoff(), options.getOnlyKeepLargestComponent(), smooth);
+		standardConnectedComponentAnalysisWorkflow(options.getInputN5DatasetName(), options.getInputN5Path(), options.getMaskN5Path(), options.getOutputN5Path(), options.getOutputN5DatasetSuffix(), thresholdDistance, options.getMinimumVolumeCutoff(), options.getOnlyKeepLargestComponent(), smooth);
 
 	}
 }
