@@ -58,7 +58,7 @@ public class TestN5Maker {
    	TestImageMaker.writeCustomImage(TestConstants.testFileLocations, "twoPlanes",voxelValues, TestConstants.blockSize, DataType.UINT8); //create it as already connected components
        }
     
-    public static final void main(final String... args) throws IOException {
+    public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
 	createCylinderAndRectangleImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("cylinderAndRectangle", TestConstants.testFileLocations, null, TestConstants.testFileLocations, "_cc", 0, 1, false, false);
@@ -69,6 +69,10 @@ public class TestN5Maker {
 
 	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
 	SparkContactSites.setupSparkAndCalculateContactSites(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc,twoPlanes_cc", null, 10, 1, false,false,false);
+
+	//topological thinning: skeletonization and medial surface
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc", "_skeleton", false);
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc", "_medialSurface", true);
 
     }
 }

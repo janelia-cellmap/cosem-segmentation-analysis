@@ -545,22 +545,15 @@ public class SparkTopologicalThinning {
 		return blockInformationList;
 	}
 	
-
-	public static final void main(final String... args) throws Exception {
-
-		final Options options = new Options(args);
-
-		if (!options.parsedSuccessfully)
-			return;
-
-		final SparkConf conf = new SparkConf().setAppName("SparkTopologicalThinning");
+	public static void setupSparkAndDoTopologicalThinning(String inputN5Path, String outputN5Path, String inputN5DatasetName, String outputN5DatasetSuffix, boolean doMedialSurface) throws Exception {
+	    final SparkConf conf = new SparkConf().setAppName("SparkTopologicalThinning");
 
 		// Get all organelles
 		String[] organelles = { "" };
-		if (options.getInputN5DatasetName() != null) {
-			organelles = options.getInputN5DatasetName().split(",");
+		if (inputN5DatasetName != null) {
+			organelles = inputN5DatasetName.split(",");
 		} else {
-			File file = new File(options.getInputN5Path());
+			File file = new File(inputN5Path);
 			organelles = file.list(new FilenameFilter() {
 				@Override
 				public boolean accept(File current, String name) {
@@ -573,32 +566,50 @@ public class SparkTopologicalThinning {
 		String tempOutputN5DatasetName = null;
 		String finalOutputN5DatasetName = null;
 		for (String currentOrganelle : organelles) {
-			finalOutputN5DatasetName = currentOrganelle + options.getOutputN5DatasetSuffix();
+			finalOutputN5DatasetName = currentOrganelle + outputN5DatasetSuffix;
 
 			// Create block information list
-			List<BlockInformation> blockInformationList = buildBlockInformationList(options.getInputN5Path(), currentOrganelle);
+			List<BlockInformation> blockInformationList = buildBlockInformationList(inputN5Path, currentOrganelle);
 			JavaSparkContext sc = new JavaSparkContext(conf);
 			int fullIterations = 0;
 						
 			while(blockInformationList.size()>0){ //Thin until block information list is empty
-				blockInformationList = performTopologicalThinningIteration(sc, options.getInputN5Path(), currentOrganelle, options.getOutputN5Path(),
-							finalOutputN5DatasetName, options.getDoMedialSurface(), blockInformationList, fullIterations);
+				blockInformationList = performTopologicalThinningIteration(sc, inputN5Path, currentOrganelle, outputN5Path,
+							finalOutputN5DatasetName, doMedialSurface, blockInformationList, fullIterations);
 				fullIterations++;
 			}
 			
 			String finalFileName = finalOutputN5DatasetName + '_'+ ((fullIterations-1)%2==0 ? "even" : "odd");
-			FileUtils.deleteDirectory(new File(options.getOutputN5Path() + "/" + finalOutputN5DatasetName));
-			FileUtils.moveDirectory(new File(options.getOutputN5Path() + "/" + finalFileName), new File(options.getOutputN5Path() + "/" + finalOutputN5DatasetName));
+			FileUtils.deleteDirectory(new File(outputN5Path + "/" + finalOutputN5DatasetName));
+			FileUtils.moveDirectory(new File(outputN5Path + "/" + finalFileName), new File(outputN5Path + "/" + finalOutputN5DatasetName));
 			sc.close();
 		}
 
 		// Remove temporary files
 		for (String currentOrganelle : organelles) {
-			tempOutputN5DatasetName = currentOrganelle + options.getOutputN5DatasetSuffix()+ "_even";
-			FileUtils.deleteDirectory(new File(options.getOutputN5Path() + "/" + tempOutputN5DatasetName));
-			tempOutputN5DatasetName = currentOrganelle + options.getOutputN5DatasetSuffix()+ "_odd";
-			FileUtils.deleteDirectory(new File(options.getOutputN5Path() + "/" + tempOutputN5DatasetName));
+			tempOutputN5DatasetName = currentOrganelle + outputN5DatasetSuffix+ "_even";
+			FileUtils.deleteDirectory(new File(outputN5Path + "/" + tempOutputN5DatasetName));
+			tempOutputN5DatasetName = currentOrganelle + outputN5DatasetSuffix + "_odd";
+			FileUtils.deleteDirectory(new File(outputN5Path + "/" + tempOutputN5DatasetName));
 		}
 
+	}
+
+
+	public static final void main(final String... args) throws Exception {
+
+		final Options options = new Options(args);
+
+		if (!options.parsedSuccessfully)
+			return;
+
+		String inputN5Path = options.getInputN5Path();
+		String outputN5Path = options.getOutputN5Path();
+		String inputN5DatasetName = options.getInputN5DatasetName();
+		String outputN5DatasetSuffix = options.getOutputN5DatasetSuffix();
+		boolean doMedialSurface = options.getDoMedialSurface();
+		
+		setupSparkAndDoTopologicalThinning(inputN5Path, outputN5Path, inputN5DatasetName, outputN5DatasetSuffix, doMedialSurface);
+		
 	}
 }
