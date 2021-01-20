@@ -9,10 +9,12 @@ import org.junit.Test;
 public class SparkTopologicalThinningTest {
     
     @Test
-    public void testConnectedComponents() throws IOException {
-	SparkContactSites.setupSparkAndCalculateContactSites(TestConstants.tempFileLocations, TestConstants.tempFileLocations, "cylinderAndRectangle_cc,twoPlanes_cc", null, 10, 1, false,false,false);
-	boolean areEqual = SparkCompareDatasets.setupSparkAndCompare(TestConstants.testFileLocations, TestConstants.tempFileLocations, "cylinderAndRectangle_cc_to_twoPlanes_cc_cc");
-	assertTrue(areEqual);
+    public void testConnectedComponents() throws Exception {
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.tempN5Locations, TestHelper.tempN5Locations, "shapes_cc", "_skeleton", false);
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.tempN5Locations, TestHelper.tempN5Locations, "shapes_cc", "_medialSurface", true);
+
+	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_skeleton"));
+	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_medialSurface"));
     }
 
 }

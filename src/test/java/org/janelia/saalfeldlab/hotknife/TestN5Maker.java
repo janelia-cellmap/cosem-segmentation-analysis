@@ -22,58 +22,83 @@ import org.apache.spark.SparkConf;
 import org.janelia.saalfeldlab.n5.DataType;
 
 public class TestN5Maker {
-
-    public static void createCylinderAndRectangleImage() throws IOException {
-	int [][][] voxelValues = new int [11][11][11];
+    
+    public static void createShapesImage() throws IOException {
+	int [][][] voxelValues = new int [150][150][150];
 	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
 	
-	int radiusSquared = 16;
-	int [] cylinderCenter = {5,5};
+	//cylinder
+	double cylinderRadiusSquared = 49*49;
+	int [] cylinderCenter = {75,50};
+	
+	//sphere
+	double sphereRadiusSquared = 29*29;
+	int [] sphereCenter = {117,117,98};
+	
+	//slab
+	int slabStart = 140;
+	
 	for(int x=1; x<dimensions[0]-1; x++) {
 	    for(int y=1; y<dimensions[1]-1; y++) {
 		for(int z=1; z<dimensions[2]-1; z++) {
-		    int deltaX = (x-cylinderCenter[0]);
-		    int deltaY = (y-cylinderCenter[1]);
-		    if(deltaX*deltaX + deltaY*deltaY <= radiusSquared && z<4) voxelValues[x][y][z] = 255; //cylinder
-		    else if(z>7) voxelValues[x][y][z] = 255; //rectangular plane
-		    else if(x==5 && y ==5) voxelValues[x][y][z] = 1; //thin line connecting them that should be below threshold
+		    int deltaXCylinder = (x-cylinderCenter[0]);
+		    int deltaYCylinder = (y-cylinderCenter[1]);
+		    
+		    int deltaXSphere = (x-sphereCenter[0]);
+		    int deltaYSphere = (y-sphereCenter[1]);
+		    int deltaZSphere = (z-sphereCenter[2]);
+		    
+		    if(deltaXCylinder*deltaXCylinder + deltaYCylinder*deltaYCylinder <= cylinderRadiusSquared && z<slabStart-2) voxelValues[x][y][z] = 255; //cylinder
+		    else if(deltaXSphere*deltaXSphere + deltaYSphere*deltaYSphere + deltaZSphere*deltaZSphere <= sphereRadiusSquared) voxelValues[x][y][z] = 255; //sphere	    	    
+		    else if(z>slabStart) voxelValues[x][y][z] = 255; //rectangular plane
+		    else voxelValues[x][y][z] = 126; //should be below threshold
 		}
 	    }
 	}
-	TestImageMaker.writeCustomImage(TestConstants.testFileLocations, "cylinderAndRectangle",voxelValues, TestConstants.blockSize, DataType.UINT8);
+	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapes",voxelValues, TestHelper.blockSize, DataType.UINT8);
     }
     
-    public static void createTwoPlanesImage() throws IOException {
-   	int [][][] voxelValues = new int [11][11][11];
+    public static void createPlanesImage() throws IOException {
+   	int [][][] voxelValues = new int [150][150][150];
    	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
    	
-   	for(int x=0; x<11; x+=10) {
-   	    for(int y=1; y<dimensions[1]-1; y++) {
-   		for(int z=1; z<dimensions[2]-1; z++) {
-   		    if(z==0) {voxelValues[x][y][z] = 1;} //plane 1
-   		    else {voxelValues[x][y][z] = 2;} //plane 2
+   	for(int x=0; x<dimensions[0]; x++) {
+   	    for(int y=0; y<dimensions[1]; y++) {
+   		for(int z=0; z<dimensions[2]; z++) {
+   		    if((x==0 || x == dimensions[0]-1) ^ (y==0 || y==dimensions[1]-1) ^ (z==0 || z==dimensions[2]-1)) {
+   			voxelValues[x][y][z] = 255;
+   		    } 
    		}
    	    }
    	}
-   	TestImageMaker.writeCustomImage(TestConstants.testFileLocations, "twoPlanes",voxelValues, TestConstants.blockSize, DataType.UINT8); //create it as already connected components
+   	
+   	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "planes",voxelValues, TestHelper.blockSize, DataType.UINT8); //create it as already connected components
        }
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
-	createCylinderAndRectangleImage();
-	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("cylinderAndRectangle", TestConstants.testFileLocations, null, TestConstants.testFileLocations, "_cc", 0, 1, false, false);
+	/*
+	createShapesImage();
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
     
 	//create additional dataset for contact site testing, default as connected components
-	createTwoPlanesImage();
-	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("twoPlanes", TestConstants.testFileLocations, null, TestConstants.testFileLocations, "_cc", 0, 1, false, false);
+	createPlanesImage();
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
 
 	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
-	SparkContactSites.setupSparkAndCalculateContactSites(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc,twoPlanes_cc", null, 10, 1, false,false,false);
+	SparkContactSites.setupSparkAndCalculateContactSites(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc,planes_cc", null, 10, 1, false,false,false);
 
 	//topological thinning: skeletonization and medial surface
-	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc", "_skeleton", false);
-	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestConstants.testFileLocations, TestConstants.testFileLocations, "cylinderAndRectangle_cc", "_medialSurface", true);
-
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_skeleton", false);
+	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_medialSurface", true);
+    */
+	//calculate curvature of dataset
+	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
+	
+	//calculate properties from medial surface
+	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
+  
+	SparkCalculateSheetnessOfContactSites.setupSparkAndCalculateSheetnessOfContactSites(TestHelper.testN5Locations, "shapes_cc_sheetnessVolumeAveraged", TestHelper.testFileLocations, "shapes_cc_to_planes_cc_cc");
     }
 }
 

@@ -9,10 +9,9 @@ import org.junit.Test;
 public class SparkContactSitesTest {
     
     @Test
-    public void testConnectedComponents() throws IOException {
-	SparkContactSites.setupSparkAndCalculateContactSites(TestConstants.tempFileLocations, TestConstants.tempFileLocations, "cylinderAndRectangle_cc,twoPlanes_cc", null, 10, 1, false,false,false);
-	boolean areEqual = SparkCompareDatasets.setupSparkAndCompare(TestConstants.testFileLocations, TestConstants.tempFileLocations, "cylinderAndRectangle_cc_to_twoPlanes_cc_cc");
-	assertTrue(areEqual);
+    public void testContactSites() throws IOException {
+	SparkContactSites.setupSparkAndCalculateContactSites(TestHelper.tempN5Locations, TestHelper.tempN5Locations, "shapes_cc,planes_cc", null, 10, 1, false,false,false);
+	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_to_planes_cc_cc"));
     }
 
 }

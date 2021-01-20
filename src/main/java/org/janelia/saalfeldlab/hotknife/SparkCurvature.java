@@ -357,6 +357,7 @@ public class SparkCurvature {
 			final HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
 			final double currentActualSigma, long[] padding, long[] dimension, int scaleStep, boolean calculateSphereness) {
 
+	    //TODO: Look at tests, nearby objects can affect measurements so need to fix that somehow...maybe ensure that the object affecting doesn't pass through background?
 		//Create gradients
 		final int n = gradients[0].numDimensions();
 		
@@ -502,6 +503,39 @@ public class SparkCurvature {
 		}
 	};
 
+	public static void setupSparkAndCalculateCurvature(String inputN5Path, String inputN5DatasetName, String outputN5Path, int scaleSteps, boolean calculateSphereness) throws IOException {
+	 // Get all organelles
+		final SparkConf conf = new SparkConf().setAppName("SparkCurvature");
+
+	 		String[] organelles = { "" };
+	 		if (inputN5DatasetName != null) {
+	 			organelles = inputN5DatasetName.split(",");
+	 		} else {
+	 			File file = new File(inputN5Path);
+	 			organelles = file.list(new FilenameFilter() {
+	 				@Override
+	 				public boolean accept(File current, String name) {
+	 					return new File(current, name).isDirectory();
+	 				}
+	 			});
+	 		}
+
+	 		System.out.println(Arrays.toString(organelles));
+
+	 		String finalOutputN5DatasetName = null;
+	 		for (String currentOrganelle : organelles) {
+	 			finalOutputN5DatasetName = currentOrganelle;
+	 			
+	 			// Create block information list
+	 			List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(inputN5Path,
+	 					currentOrganelle);
+	 			JavaSparkContext sc = new JavaSparkContext(conf);
+	 			computeCurvature(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName, scaleSteps, calculateSphereness, blockInformationList);
+
+	 			sc.close();
+	 		}
+	}
+
 	/**
 	 * Calculate sheetness given input args
 	 * 
@@ -517,36 +551,13 @@ public class SparkCurvature {
 		if (!options.parsedSuccessfully)
 			return;
 
-		final SparkConf conf = new SparkConf().setAppName("SparkCurvature");
-
-		// Get all organelles
-		String[] organelles = { "" };
-		if (options.getInputN5DatasetName() != null) {
-			organelles = options.getInputN5DatasetName().split(",");
-		} else {
-			File file = new File(options.getInputN5Path());
-			organelles = file.list(new FilenameFilter() {
-				@Override
-				public boolean accept(File current, String name) {
-					return new File(current, name).isDirectory();
-				}
-			});
-		}
-
-		System.out.println(Arrays.toString(organelles));
-
-		String finalOutputN5DatasetName = null;
-		for (String currentOrganelle : organelles) {
-			finalOutputN5DatasetName = currentOrganelle;
-			
-			// Create block information list
-			List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getInputN5Path(),
-					currentOrganelle);
-			JavaSparkContext sc = new JavaSparkContext(conf);
-			computeCurvature(sc, options.getInputN5Path(), currentOrganelle, options.getOutputN5Path(), finalOutputN5DatasetName, options.getScaleSteps(), options.getCalculateSphereness(), blockInformationList);
-
-			sc.close();
-		}
+		String inputN5DatasetName = options.getInputN5DatasetName();
+		String inputN5Path = options.getInputN5DatasetName();
+		String outputN5Path = options.getOutputN5Path();
+		int scaleSteps = options.getScaleSteps();
+		boolean calculateSphereness = options.getCalculateSphereness();
+		
+		setupSparkAndCalculateCurvature(inputN5Path, inputN5DatasetName, outputN5Path, scaleSteps, calculateSphereness);
 
 	}
 }

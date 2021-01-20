@@ -321,6 +321,40 @@ public class SparkCalculateSheetnessOfContactSites {
 
 	}
 
+	public static void setupSparkAndCalculateSheetnessOfContactSites(String inputN5Path, String inputN5SheetnessDatasetName, String outputDirectory, String inputN5ContactSiteDatasetName) throws IOException {
+	 // Get all organelles
+	 		String[] contactSiteDatasets = { "" };
+	 		if (inputN5ContactSiteDatasetName != null) {
+	 			contactSiteDatasets = inputN5ContactSiteDatasetName.split(",");
+	 		} else {
+	 			File file = new File(inputN5Path);
+	 			contactSiteDatasets = file.list(new FilenameFilter() {
+	 				@Override
+	 				public boolean accept(File current, String name) {
+	 					return new File(current, name).isDirectory();
+	 				}
+	 			});
+	 		}
+
+	 		final SparkConf conf = new SparkConf().setAppName("SparkCalculateSheetnessOfContactSites");
+
+	 		// Create block information list
+	 		List<BlockInformation> blockInformationList = BlockInformation
+	 				.buildBlockInformationList(inputN5Path, inputN5SheetnessDatasetName);
+	 		for (String contactSiteDataset : contactSiteDatasets) {
+	 			String[] contactSiteDatasetSplit = contactSiteDataset.split("_to_");
+	 			String referenceOrganelleName = contactSiteDatasetSplit[contactSiteDatasetSplit.length - 1];
+	 			referenceOrganelleName = referenceOrganelleName.substring(0, referenceOrganelleName.length() - 3); 
+	 			// -3 to get rid of _cc
+	 			JavaSparkContext sc = new JavaSparkContext(conf);
+	 			SheetnessMaps sheetnessMaps = getContactSiteAndOrganelleSheetness(sc, inputN5Path,
+	 					inputN5SheetnessDatasetName, contactSiteDataset, referenceOrganelleName,
+	 					blockInformationList);
+	 			writeData(sheetnessMaps, outputDirectory, contactSiteDataset, referenceOrganelleName);
+	 			sc.close();
+	 		}
+	}
+
 	/**
 	 * Take input args and perform analysis.
 	 * 
@@ -335,37 +369,12 @@ public class SparkCalculateSheetnessOfContactSites {
 		if (!options.parsedSuccessfully)
 			return;
 
-		// Get all organelles
-		String[] contactSiteDatasets = { "" };
-		if (options.getInputN5ContactSiteDatasetName() != null) {
-			contactSiteDatasets = options.getInputN5ContactSiteDatasetName().split(",");
-		} else {
-			File file = new File(options.getInputN5Path());
-			contactSiteDatasets = file.list(new FilenameFilter() {
-				@Override
-				public boolean accept(File current, String name) {
-					return new File(current, name).isDirectory();
-				}
-			});
-		}
+		String inputN5Path = options.getInputN5Path();
+		String inputN5SheetnessDatasetName = options.getInputN5SheetnessDatasetName();
+		String outputDirectory = options.getOutputDirectory();
+		String inputN5ContactSiteDatasetName =  options.getInputN5ContactSiteDatasetName();
 
-		final SparkConf conf = new SparkConf().setAppName("SparkCalculateSheetnessOfContactSites");
-
-		// Create block information list
-		List<BlockInformation> blockInformationList = BlockInformation
-				.buildBlockInformationList(options.getInputN5Path(), options.getInputN5SheetnessDatasetName());
-		for (String contactSiteDataset : contactSiteDatasets) {
-			String[] contactSiteDatasetSplit = contactSiteDataset.split("_to_");
-			String referenceOrganelleName = contactSiteDatasetSplit[contactSiteDatasetSplit.length - 1];
-			referenceOrganelleName = referenceOrganelleName.substring(0, referenceOrganelleName.length() - 3); 
-			// -3 to get rid of _cc
-			JavaSparkContext sc = new JavaSparkContext(conf);
-			SheetnessMaps sheetnessMaps = getContactSiteAndOrganelleSheetness(sc, options.getInputN5Path(),
-					options.getInputN5SheetnessDatasetName(), contactSiteDataset, referenceOrganelleName,
-					blockInformationList);
-			writeData(sheetnessMaps, options.getOutputDirectory(), contactSiteDataset, referenceOrganelleName);
-			sc.close();
-		}
+		setupSparkAndCalculateSheetnessOfContactSites(inputN5Path, inputN5SheetnessDatasetName, outputDirectory, inputN5ContactSiteDatasetName);
 
 	}
 

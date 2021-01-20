@@ -1,0 +1,17 @@
+package org.janelia.saalfeldlab.hotknife;
+
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import org.apache.spark.SparkConf;
+import org.junit.Test;
+
+public class SparkCurvatureTest {
+    
+    @Test
+    public void testCurvature() throws Exception {
+	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.tempN5Locations, "shapes_cc", TestHelper.tempN5Locations, 12, false);
+	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_sheetness"));
+    }
+
+}
