@@ -10,7 +10,7 @@ public class SparkCurvatureTest {
     
     @Test
     public void testCurvature() throws Exception {
-	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.tempN5Locations, "shapes_cc", TestHelper.tempN5Locations, 12, false);
+	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.tempN5Locations, 12, false);
 	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_sheetness"));
     }
 

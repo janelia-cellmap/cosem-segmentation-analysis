@@ -10,7 +10,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceTest {
     
     @Test
     public void testCalculatePropertiesFromMedialSurface() throws Exception {
-	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.tempN5Locations, "shapes_cc", TestHelper.tempN5Locations, TestHelper.tempFileLocations, false);
+	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.tempN5Locations, TestHelper.tempFileLocations, false);
 	
 	assertTrue(TestHelper.validationAndTestN5sAreEqual("shapes_cc_sheetnessVolumeAveraged"));
 	assertTrue(TestHelper.validationAndTestFilesAreEqual("shapes_cc_sheetnessVolumeAndAreaHistograms.csv"));

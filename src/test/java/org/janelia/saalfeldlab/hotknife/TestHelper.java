@@ -1,7 +1,12 @@
 package org.janelia.saalfeldlab.hotknife;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Scanner;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 
@@ -17,10 +22,58 @@ public class TestHelper {
 	 return areEqual;
     }
     
+    public static int getNumberOfLines(String filename) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(filename));
+        int lines = 0;
+        while (reader.readLine() != null) lines++;
+        reader.close();
+        
+        return lines;
+    }
+    
+    public static String removeExcessCharacters(String str) {
+	if (str.contains(",,")) {//then this is an annoying thing to have to compare so dont care about part after it
+	    str = str.split(",,")[0]+",";
+	}
+	return str;
+    }
+    
+    public static boolean equalButDifferentLineOrder(String testFilename, String tempFilename) throws IOException {
+
+	if( getNumberOfLines(testFilename)==getNumberOfLines(tempFilename) ){
+	    File testFile = new File(testFilename);
+	    File tempFile = new File(tempFilename);
+	    
+	    Scanner input1= new Scanner(testFile);
+            Scanner input2= new Scanner(tempFile);
+            
+            Set<String> set1 = new HashSet<String>();
+            Set<String> set2 = new HashSet<String>();
+            
+            while(input1.hasNext()) {
+        	String str1 = removeExcessCharacters( input1.nextLine() );
+        	String str2 = removeExcessCharacters( input2.nextLine() );        	
+        	set1.add(str1);
+            	set2.add(str2);
+            }
+         
+            input1.close();
+            input2.close();
+            return set1.equals(set2);  
+	}
+	return false;
+    }
+    
     public static boolean validationAndTestFilesAreEqual(String filename) throws IOException {
-        File testFile = new File(testFileLocations + filename);
-        File tempFile = new File(tempFileLocations + filename);
+	String testFilename = testFileLocations + filename;
+	String tempFilename = tempFileLocations + filename;
+        File testFile = new File(testFilename);
+        File tempFile = new File(tempFilename);
         boolean areEqual = FileUtils.contentEquals(testFile, tempFile);
+        
+        if(!areEqual) { //then may be just out of order
+            return equalButDifferentLineOrder(testFilename, tempFilename);
+        }
         return areEqual;
     }
     

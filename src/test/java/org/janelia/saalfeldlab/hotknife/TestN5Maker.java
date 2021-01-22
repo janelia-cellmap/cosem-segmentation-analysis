@@ -38,6 +38,7 @@ public class TestN5Maker {
 	//slab
 	int slabStart = 140;
 	
+	
 	for(int x=1; x<dimensions[0]-1; x++) {
 	    for(int y=1; y<dimensions[1]-1; y++) {
 		for(int z=1; z<dimensions[2]-1; z++) {
@@ -49,9 +50,39 @@ public class TestN5Maker {
 		    int deltaZSphere = (z-sphereCenter[2]);
 		    
 		    if(deltaXCylinder*deltaXCylinder + deltaYCylinder*deltaYCylinder <= cylinderRadiusSquared && z<slabStart-2) voxelValues[x][y][z] = 255; //cylinder
-		    else if(deltaXSphere*deltaXSphere + deltaYSphere*deltaYSphere + deltaZSphere*deltaZSphere <= sphereRadiusSquared) voxelValues[x][y][z] = 255; //sphere	    	    
+		    else if(deltaXSphere*deltaXSphere + deltaYSphere*deltaYSphere + deltaZSphere*deltaZSphere <= sphereRadiusSquared) 
+			{	
+				if(x>sphereCenter[0]-5 && x<sphereCenter[0]+5 && y>sphereCenter[1]-5 && y<sphereCenter[1]+5 && z>sphereCenter[2]-5 && z<sphereCenter[2]+5)
+				{
+				    voxelValues[x][y][z] = 0; //hole	
+				}
+				else {
+				    voxelValues[x][y][z] = 255; //sphere	
+				}
+			}
 		    else if(z>slabStart) voxelValues[x][y][z] = 255; //rectangular plane
 		    else voxelValues[x][y][z] = 126; //should be below threshold
+		    
+		    //U shape
+		    if(x>130 && x<140 && z>70 && z<80 && y<4) {
+			voxelValues[x][y][z]=255;
+			if(y==2 && x<139) {
+				voxelValues[x][y][z]=0;
+			}
+		    }
+		    
+		    //3 small chunks, 2 of which should be removed
+		    voxelValues[100][98][75]=255;
+		    voxelValues[100][99][75]=255;
+		    voxelValues[100][100][75]=255;
+		    
+		    voxelValues[102][98][75]=255;
+		    voxelValues[102][99][75]=255;
+		    
+		    voxelValues[104][99][75]=255;
+		   
+		    
+
 		}
 	    }
 	}
@@ -77,10 +108,12 @@ public class TestN5Maker {
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
-	/*
+	
 	createShapesImage();
-	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
-    
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 2, false, false);
+	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
+
+	
 	//create additional dataset for contact site testing, default as connected components
 	createPlanesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
@@ -91,14 +124,19 @@ public class TestN5Maker {
 	//topological thinning: skeletonization and medial surface
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_skeleton", false);
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_medialSurface", true);
-    */
+    
 	//calculate curvature of dataset
 	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
 	
 	//calculate properties from medial surface
 	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
   
+	//sheetness of contact sites
 	SparkCalculateSheetnessOfContactSites.setupSparkAndCalculateSheetnessOfContactSites(TestHelper.testN5Locations, "shapes_cc_sheetnessVolumeAveraged", TestHelper.testFileLocations, "shapes_cc_to_planes_cc_cc");
+   
+	//general information output
+	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
+
     }
 }
 
