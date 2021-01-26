@@ -52,6 +52,8 @@ import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
+import net.imglib2.view.IntervalView;
+import net.imglib2.view.Views;
 
 public class TestImageMaker {
     public static long [] getDimensions(int [][][] voxelValues) {

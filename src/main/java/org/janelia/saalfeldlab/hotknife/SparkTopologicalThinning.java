@@ -51,6 +51,9 @@ import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.NumericType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.IntervalView;
@@ -136,7 +139,7 @@ public class SparkTopologicalThinning {
 	 * @param iteration
 	 * @throws IOException
 	 */
-	public static List<BlockInformation> performTopologicalThinningIteration(final JavaSparkContext sc, final String n5Path,
+	public static <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> performTopologicalThinningIteration(final JavaSparkContext sc, final String n5Path,
 			final String originalInputDatasetName, final String n5OutputPath, String originalOutputDatasetName, boolean doMedialSurface,
 			List<BlockInformation> blockInformationList, final int iteration) throws IOException {
 
@@ -158,7 +161,7 @@ public class SparkTopologicalThinning {
 		final int[] blockSize = attributes.getBlockSize();
 		
 		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
-		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, org.janelia.saalfeldlab.n5.DataType.UINT64, new GzipCompression());
+		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, attributes.getDataType(), new GzipCompression());
 		n5Writer.setAttribute(outputDatasetName, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, originalInputDatasetName)));
 		
 		List<BlockInformation> blockInformationListThinningRequired = new LinkedList<BlockInformation>();
@@ -188,15 +191,18 @@ public class SparkTopologicalThinning {
 			
 			//Input source is now the previously completed iteration image, and output is initialized to that
 			String currentInputDatasetName;
+			N5FSReader n5BlockReader = null;
 			if(iteration==0) {
 				currentInputDatasetName = originalInputDatasetName;
+				n5BlockReader = new N5FSReader(n5Path);
 			}
 			else {
 				currentInputDatasetName = inputDatasetName;
+				n5BlockReader = new N5FSReader(n5OutputPath);
+
 			}
-			N5FSReader n5BlockReader = new N5FSReader(n5OutputPath);
-			final RandomAccessibleInterval<UnsignedLongType> previousThinningResult = (RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, currentInputDatasetName);
-			IntervalView<UnsignedLongType> thinningResultCropped = Views.offsetInterval(Views.extendValue(previousThinningResult, new UnsignedLongType(0)), paddedOffset, paddedDimension);
+			final RandomAccessibleInterval<T> previousThinningResult = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, currentInputDatasetName);
+			IntervalView<T> thinningResultCropped = Views.offsetInterval(Views.extendZero(previousThinningResult), paddedOffset, paddedDimension);
 
 			//IntervalView<UnsignedLongType> outputImage = Views.offsetInterval(Views.extendValue(previousThinningResult, new UnsignedLongType(0)), paddedOffset, paddedDimension);
 			//IntervalView<UnsignedLongType> outputImage = Views.offsetInterval(ArrayImgs.unsignedLongs(paddedDimension),new long[]{0,0,0}, paddedDimension);
@@ -208,8 +214,7 @@ public class SparkTopologicalThinning {
 			//All blocks start off dependent, so it will only be independent after it made it through one iteration, ensuring all blocks are checked.
 			//Perform thinning, then check if block is independent. If so, complete the block.
 			blockInformation = updateThinningResult(thinningResultCropped, padding, paddedOffset, paddedDimension, doMedialSurface, blockInformation ); //to prevent one skeleton being created for two distinct objects that are touching	
-			IntervalView<UnsignedLongType> croppedOutputImage = Views.offsetInterval(thinningResultCropped, new long[] {paddingNeg[0],paddingNeg[1],paddingNeg[2]}, dimension);
-
+			IntervalView<T> croppedOutputImage = Views.offsetInterval(thinningResultCropped, new long[] {paddingNeg[0],paddingNeg[1],paddingNeg[2]}, dimension);
 			//Write out current thinned block and return block information updated with whether it needs to be thinned again
 			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
 			N5Utils.saveBlock(croppedOutputImage, n5BlockWriter, outputDatasetName, gridBlock[2]);
@@ -318,14 +323,14 @@ public class SparkTopologicalThinning {
 	}
 	
 	
-	private static Map<Long,Set<Long>> getTouchingObjectIDs(IntervalView<UnsignedLongType> thinningResult, long[] paddedDimension) {
+	private static <T extends IntegerType<T>> Map<Long,Set<Long>> getTouchingObjectIDs(IntervalView<T> thinningResult, long[] paddedDimension) {
 		Map<Long,Set<Long>> touchingObjectIDs = new HashMap<Long,Set<Long>>();
-		RandomAccess<UnsignedLongType> thinningResultRandomAccess = thinningResult.randomAccess();
+		RandomAccess<T> thinningResultRandomAccess = thinningResult.randomAccess();
 		for(int x=0; x<paddedDimension[0]; x++) {
 			for(int y=0; y<paddedDimension[1]; y++) {
 				for(int z=0; z<paddedDimension[2]; z++) {
 					thinningResultRandomAccess.setPosition(new int[] {x,y,z});
-					long objectID = thinningResultRandomAccess.get().get();
+					long objectID = thinningResultRandomAccess.get().getIntegerLong();
 					if(objectID>0) {
 						for(int dx=-1; dx<=1; dx++) {
 							for(int dy=-1; dy<=1; dy++) {
@@ -335,7 +340,7 @@ public class SparkTopologicalThinning {
 									int newZ = z+dz;
 									if(newX>=0 && newX<paddedDimension[0] && newY>=0 & newY<paddedDimension[1] && newZ>=0 && newZ<paddedDimension[2]) {//Then still inside block
 										thinningResultRandomAccess.setPosition(new int[] {newX,newY,newZ});
-										long neighboringObjectID = thinningResultRandomAccess.get().get();
+										long neighboringObjectID = thinningResultRandomAccess.get().getIntegerLong();
 										if(neighboringObjectID>0 && neighboringObjectID!=objectID) {//then two objects are touching
 											Set<Long> objectIDTouchers = touchingObjectIDs.getOrDefault(objectID, new HashSet<Long>());
 											objectIDTouchers.add(neighboringObjectID);
@@ -357,7 +362,7 @@ public class SparkTopologicalThinning {
 		return touchingObjectIDs;
 	}
 
-	private static BlockInformation updateThinningResult(IntervalView<UnsignedLongType> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, BlockInformation blockInformation ) {
+	private static <T extends IntegerType<T>> BlockInformation updateThinningResult(IntervalView<T> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, BlockInformation blockInformation ) {
 		blockInformation.thinningLocations = new boolean[3][3][3];
 		Map<Long,Set<Long>> touchingObjectIDs = null;
 		if(blockInformation.areObjectsTouching) {//check if objects are still touching
@@ -374,16 +379,16 @@ public class SparkTopologicalThinning {
 		return blockInformation;
 	}
 	
-	private static BlockInformation thinTouchingObjectsIndependently(IntervalView<UnsignedLongType> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, Map<Long,Set<Long>> touchingObjectIDs, BlockInformation blockInformation ){
+	private static <T extends IntegerType<T>> BlockInformation thinTouchingObjectsIndependently(IntervalView<T> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, Map<Long,Set<Long>> touchingObjectIDs, BlockInformation blockInformation ){
 		blockInformation.needToThinAgainCurrent = false;
 		//blockInformation.isIndependent = true;
 		
-		Cursor<UnsignedLongType> thinningResultCursor = thinningResult.localizingCursor();
+		Cursor<T> thinningResultCursor = thinningResult.localizingCursor();
 		thinningResultCursor.reset();
 		
 		Set<Long> objectIDsInBlockLeftToProcess = new HashSet<Long>();
 		while(thinningResultCursor.hasNext()) {
-			Long objectID = thinningResultCursor.next().get();
+			Long objectID = thinningResultCursor.next().getIntegerLong();
 			if (objectID >0) {
 				objectIDsInBlockLeftToProcess.add(objectID);
 			}
@@ -408,7 +413,7 @@ public class SparkTopologicalThinning {
 			while(thinningResultCursor.hasNext()) { //initialize to only look at current object
 				thinningResultCursor.next();
 				currentCursor.next();
-				if(currentIndependentSetOfObjectIDsToProcess.contains(thinningResultCursor.get().get()))
+				if(currentIndependentSetOfObjectIDsToProcess.contains(thinningResultCursor.get().getIntegerLong()))
 					currentCursor.get().set(1);
 			}
 		
@@ -433,9 +438,9 @@ public class SparkTopologicalThinning {
 				currentCursor.next();
 				thinningResultCursor.next();
 				if(currentCursor.get().get() ==0) {
-					if (currentIndependentSetOfObjectIDsToProcess.contains(thinningResultCursor.get().get())) {
+					if (currentIndependentSetOfObjectIDsToProcess.contains(thinningResultCursor.get().getIntegerLong())) {
 						blockInformation = updateBlockInformationThinningLocations(thinningResultCursor, padding, paddedDimension, blockInformation);
-						thinningResultCursor.get().set(0);//Then this voxel was thinned out
+						thinningResultCursor.get().setInteger(0);//Then this voxel was thinned out
 					}
 				}
 			}
@@ -445,18 +450,18 @@ public class SparkTopologicalThinning {
 		return blockInformation;
 	}
 	
-	private static BlockInformation thinEverythingTogether(IntervalView<UnsignedLongType> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, BlockInformation blockInformation ){
+	private static <T extends IntegerType<T>> BlockInformation thinEverythingTogether(IntervalView<T> thinningResult, int [][] padding, long [] paddedOffset, long [] paddedDimension, boolean doMedialSurface, BlockInformation blockInformation ){
 		blockInformation.needToThinAgainCurrent = false;
 		//blockInformation.isIndependent = true;
 		
-		Cursor<UnsignedLongType> thinningResultCursor = thinningResult.localizingCursor();
+		Cursor<T> thinningResultCursor = thinningResult.localizingCursor();
 		thinningResultCursor.reset();
 		
 		IntervalView<UnsignedByteType> current = Views.offsetInterval(ArrayImgs.unsignedBytes(paddedDimension),new long[]{0,0,0}, paddedDimension); //need this as unsigned byte type
 		RandomAccess<UnsignedByteType> currentRandomAccess = current.randomAccess();
 		Cursor<UnsignedByteType> currentCursor = current.cursor();	
 		while(thinningResultCursor.hasNext()) {
-			long objectID = thinningResultCursor.next().get();
+			long objectID = thinningResultCursor.next().getIntegerLong();
 			if (objectID >0) {
 				int [] pos = new int [] {thinningResultCursor.getIntPosition(0), thinningResultCursor.getIntPosition(1), thinningResultCursor.getIntPosition(2)};
 				currentRandomAccess.setPosition(pos);
@@ -486,10 +491,10 @@ public class SparkTopologicalThinning {
 			currentCursor.next();
 			thinningResultCursor.next();
 			if(currentCursor.get().get() == 0) {
-				if(thinningResultCursor.get().get()>0) {
+				if(thinningResultCursor.get().getIntegerLong()>0) {
 					blockInformation = updateBlockInformationThinningLocations(thinningResultCursor, padding, paddedDimension, blockInformation);
 				}
-				thinningResultCursor.get().set(0);//Then this voxel was thinned out
+				thinningResultCursor.get().setInteger(0);//Then this voxel was thinned out
 			}
 		}
 	
@@ -497,7 +502,7 @@ public class SparkTopologicalThinning {
 		return blockInformation;
 	}
 	
-	public static BlockInformation updateBlockInformationThinningLocations(	Cursor<UnsignedLongType> thinningResultCursor, int[][] padding, long [] paddedDimension, BlockInformation blockInformation) {		
+	public static <T extends IntegerType<T>> BlockInformation updateBlockInformationThinningLocations(	Cursor<T> thinningResultCursor, int[][] padding, long [] paddedDimension, BlockInformation blockInformation) {		
 		//in the case that this block is independent, then it doesnt matter because it will not have any effect since its edge doesnt change.
 		int xIndex = getThinningLocationsIndex(0, thinningResultCursor, padding, paddedDimension);
 		int yIndex = getThinningLocationsIndex(1, thinningResultCursor, padding, paddedDimension);
@@ -507,7 +512,7 @@ public class SparkTopologicalThinning {
 		return blockInformation;
 	}
 
-	public static int getThinningLocationsIndex(int d, Cursor<UnsignedLongType> thinningResultCursor, int[][] padding, long[] paddedDimension){
+	public static <T extends IntegerType<T>> int getThinningLocationsIndex(int d, Cursor<T> thinningResultCursor, int[][] padding, long[] paddedDimension){
 		int [] paddingNeg = padding[0];
 		int [] paddingPos = padding[1];
 		
