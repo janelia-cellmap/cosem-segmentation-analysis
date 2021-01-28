@@ -108,7 +108,7 @@ public class TestN5Maker {
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
-	
+	/*
 	createShapesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 2, false, false);
 	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
@@ -124,10 +124,10 @@ public class TestN5Maker {
 	//topological thinning: skeletonization and medial surface
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_skeleton", false);
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_medialSurface", true);
-    
+    */
 	//calculate curvature of dataset
 	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
-	
+	/*
 	//calculate properties from medial surface
 	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
   
@@ -136,7 +136,7 @@ public class TestN5Maker {
    
 	//general information output
 	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
-
+*/
     }
 }
 

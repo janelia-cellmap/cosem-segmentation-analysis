@@ -49,6 +49,8 @@ import ij.ImageJ;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
@@ -143,7 +145,7 @@ public class SparkIDFilter {
 
 	}
 
-	public static final Map<Long,Long> getAdjacentIDs(
+	public static final <T extends IntegerType<T> & NativeType<T>> Map<Long,Long> getAdjacentIDs(
 			final JavaSparkContext sc,
 			final String n5Path,
 			final String datasetName,
@@ -162,21 +164,21 @@ public class SparkIDFilter {
 				final N5Reader n5BlockReader = new N5FSReader(n5Path);
 				boolean show=false;
 				if(show) new ImageJ();
-				final RandomAccessibleInterval<UnsignedLongType> source = Views.offsetInterval(Views.extendZero(
-						(RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, datasetName)), paddedOffset,paddedDimension);
-				RandomAccess<UnsignedLongType> sourceRA = source.randomAccess();
+				final RandomAccessibleInterval<T> source = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, datasetName)), paddedOffset,paddedDimension);
+				RandomAccess<T> sourceRA = source.randomAccess();
 				for(long x=1; x<paddedDimension[0]-1; x++) {
 					for(long y=1; y<paddedDimension[1]-1; y++) {
 						for(long z=1; z<paddedDimension[2]-1; z++) {
 							sourceRA.setPosition(new long[] {x,y,z});
-							long currentID = sourceRA.get().get();
+							long currentID = sourceRA.get().getIntegerLong();
 							if(currentID>0 && !idsToDelete.contains(currentID) && !adjacentIDtoParentID.containsKey(currentID)) {//then isn't explicitly kept or deleted yet
 								outerLoop:
 								for(long dx=-1; dx<=1; dx+=2 ) {
 									for(long dy=-1; dy<=1; dy+=2) {
 										for(long dz=-1; dz<=1; dz+=2) {
 											sourceRA.setPosition(new long[] {x+dx,y+dy,z+dz});
-											long adjacentID = sourceRA.get().get();
+											long adjacentID = sourceRA.get().getIntegerLong();
 											if(idsToKeep.contains(adjacentID)) {
 												adjacentIDtoParentID.put(currentID, adjacentID);
 												break outerLoop;
@@ -198,7 +200,7 @@ public class SparkIDFilter {
 			return adjacentIDtoParentID;
 	}
 	
-	public static final void filterIDs(
+	public static final <T extends IntegerType<T> & NativeType<T>>void filterIDs(
 			final JavaSparkContext sc,
 			final String n5Path,
 			final String datasetName,
@@ -222,7 +224,7 @@ public class SparkIDFilter {
 				datasetName + suffix,
 				dimensions,
 				blockSize,
-				DataType.UINT64,
+				attributes.getDataType(),
 				new GzipCompression());
 		n5Writer.setAttribute(datasetName + suffix, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, datasetName)));
 
@@ -237,19 +239,19 @@ public class SparkIDFilter {
 		rdd.foreach(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
 			final N5Reader n5BlockReader = new N5FSReader(n5Path);
-			final IntervalView<UnsignedLongType> source = Views.offsetInterval(
-					(RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, datasetName), gridBlock[0],gridBlock[1]);
-			Cursor<UnsignedLongType> sourceCursor = source.cursor();
+			final IntervalView<T> source = Views.offsetInterval(
+					(RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, datasetName), gridBlock[0],gridBlock[1]);
+			Cursor<T> sourceCursor = source.cursor();
 			while(sourceCursor.hasNext()) {
 				sourceCursor.next();
-				long currentID = sourceCursor.get().get();
+				long currentID = sourceCursor.get().getIntegerLong();
 				if(currentID>0) {
 					if(onlyKeepSubsetOfIDs) {
-						if(adjacentIDtoParentID.containsKey(currentID)) sourceCursor.get().set(adjacentIDtoParentID.get(currentID));
-						else if(! idsToKeep.contains(currentID)) sourceCursor.get().set(0);
+						if(adjacentIDtoParentID.containsKey(currentID)) sourceCursor.get().setInteger(adjacentIDtoParentID.get(currentID));
+						else if(! idsToKeep.contains(currentID)) sourceCursor.get().setZero();
 					}
 					else { //then keeping everything except those slated to delete
-						if(idsToDelete.contains(currentID)) sourceCursor.get().set(0);
+						if(idsToDelete.contains(currentID)) sourceCursor.get().setZero();
 					}
 				}
 			}

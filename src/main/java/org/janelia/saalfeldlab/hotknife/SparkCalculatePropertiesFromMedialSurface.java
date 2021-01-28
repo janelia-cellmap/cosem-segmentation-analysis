@@ -47,9 +47,10 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImgFactory;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedIntType;
-import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.IntervalView;
@@ -170,7 +171,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final List<BlockInformation> calculateDistanceTransformAtMedialSurface(final JavaSparkContext sc,
+    public static final <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> calculateDistanceTransformAtMedialSurface(final JavaSparkContext sc,
 	    final String n5Path, final String datasetName, final String n5OutputPath,
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
@@ -190,13 +191,13 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
 
 	    // Get correctly padded distance transform first
-	    RandomAccessibleInterval<UnsignedLongType> segmentation = (RandomAccessibleInterval<UnsignedLongType>) N5Utils
+	    RandomAccessibleInterval<T> segmentation = (RandomAccessibleInterval<T>) N5Utils
 		    .open(n5BlockReader, datasetName);
 	    CorrectlyPaddedDistanceTransform cpdt = new CorrectlyPaddedDistanceTransform(segmentation, offset,
 		    dimension);
 	    RandomAccess<FloatType> distanceTransformRA = cpdt.correctlyPaddedDistanceTransform.randomAccess();
 
-	    RandomAccess<UnsignedLongType> medialSurfaceRandomAccess = SparkCosemHelper.getOffsetIntervalExtendZeroRA(
+	    RandomAccess<T> medialSurfaceRandomAccess = SparkCosemHelper.getOffsetIntervalExtendZeroRA(
 		    n5Path, datasetName + "_medialSurface", cpdt.paddedOffset, cpdt.paddedDimension);
 
 	    blockInformation.paddingForMedialSurface = 0;
@@ -206,7 +207,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		    for (long z = cpdt.padding[2]; z < cpdt.paddedDimension[2] - cpdt.padding[2]; z++) {
 			long[] pos = new long[] { x, y, z };
 			medialSurfaceRandomAccess.setPosition(pos);
-			if (medialSurfaceRandomAccess.get().get() > 0) {
+			if (medialSurfaceRandomAccess.get().getIntegerLong() > 0) {
 			    distanceTransformRA.setPosition(pos);
 			    float dist = (float) Math.sqrt(distanceTransformRA.get().get());
 
@@ -294,7 +295,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final Map<List<Integer>, Long> projectCurvatureToSurface(final JavaSparkContext sc,
+    public static final <T extends IntegerType<T> & NativeType<T>> Map<List<Integer>, Long> projectCurvatureToSurface(final JavaSparkContext sc,
 	    final String n5Path, final String datasetName, final String n5OutputPath,
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
@@ -337,7 +338,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	    { // Necessary? scoping to limit memory
 	      // Get corresponding medial surface and sheetness
-		Cursor<UnsignedLongType> medialSurfaceCursor = SparkCosemHelper.getOffsetIntervalExtendZeroC(n5Path,
+		Cursor<T> medialSurfaceCursor = SparkCosemHelper.getOffsetIntervalExtendZeroC(n5Path,
 			datasetName + "_medialSurface", paddedOffset, paddedDimension);
 		RandomAccess<DoubleType> sheetnessRA = SparkCosemHelper.getOffsetIntervalExtendZeroRA(n5Path,
 			datasetName + "_sheetness", paddedOffset, paddedDimension);
@@ -509,12 +510,12 @@ public class SparkCalculatePropertiesFromMedialSurface {
      * @param sheetnessAndThicknessHistogram Histogram as a map containing sheetness
      *                                       and thickness
      */
-    private static void createSumAndCountsAndUpdateHistogram(Cursor<UnsignedLongType> medialSurfaceCursor,
+    private static <T extends IntegerType<T> & NativeType<T>> void  createSumAndCountsAndUpdateHistogram(Cursor<T> medialSurfaceCursor,
 	    RandomAccess<FloatType> distanceTransformRA, RandomAccess<DoubleType> sheetnessRA,
 	    RandomAccess<FloatType> sheetnessSumRA, RandomAccess<UnsignedIntType> countsRA, double[] pixelResolution,
 	    long padding, long[] paddedDimension, Map<List<Integer>, Long> sheetnessAndThicknessHistogram) {
 	while (medialSurfaceCursor.hasNext()) {
-	    final long medialSurfaceValue = medialSurfaceCursor.next().get();
+	    final long medialSurfaceValue = medialSurfaceCursor.next().getIntegerLong();
 	    if (medialSurfaceValue > 0) { // then it is on medial surface
 
 		int[] pos = { medialSurfaceCursor.getIntPosition(0), medialSurfaceCursor.getIntPosition(1),

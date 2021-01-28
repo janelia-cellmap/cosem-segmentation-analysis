@@ -53,7 +53,8 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.gauss3.Gauss3;
 import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.view.ExtendedRandomAccessibleInterval;
 import net.imglib2.view.IntervalView;
@@ -138,7 +139,7 @@ public class SparkCurvature {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final void computeCurvature(final JavaSparkContext sc, final String n5Path,
+	public static final <T extends IntegerType<T> & NativeType<T>> void computeCurvature(final JavaSparkContext sc, final String n5Path,
 			final String inputDatasetName, final String n5OutputPath, String outputDatasetName, int scaleSteps, boolean calculateSphereness,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
@@ -176,7 +177,7 @@ public class SparkCurvature {
 			final N5Reader n5BlockReader = new N5FSReader(n5Path);
 
 			//Binarize segmentation data and read in medial surface info
-			RandomAccessibleInterval<UnsignedLongType> source = (RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, inputDatasetName);
+			RandomAccessibleInterval<T> source = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName);
 			final RandomAccessibleInterval<DoubleType> sourceConverted =
 					Converters.convert(
 							source,
@@ -185,9 +186,9 @@ public class SparkCurvature {
 			final IntervalView<DoubleType> sourceCropped = Views.offsetInterval(Views.extendZero(sourceConverted), paddedOffset, paddedDimension);
 
 			
-			RandomAccessibleInterval<UnsignedLongType> medialSurface = (RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, inputDatasetName+"_medialSurface");	
-			final IntervalView<UnsignedLongType> medialSurfaceCropped = Views.offsetInterval(Views.extendZero(medialSurface),paddedOffset, paddedDimension);
-			RandomAccess<UnsignedLongType> medialSurfaceCroppedRA = medialSurfaceCropped.randomAccess();
+			RandomAccessibleInterval<T> medialSurface = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName+"_medialSurface");	
+			final IntervalView<T> medialSurfaceCropped = Views.offsetInterval(Views.extendZero(medialSurface),paddedOffset, paddedDimension);
+			RandomAccess<T> medialSurfaceCroppedRA = medialSurfaceCropped.randomAccess();
 			
 			HashMap<List<Long>,SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap = new HashMap<List<Long>,SheetnessInformation>();
 			for(long x=padding; x<padding+dimension[0]; x++) {
@@ -195,7 +196,7 @@ public class SparkCurvature {
 					for(long z=padding; z<padding+dimension[2]; z++) {
 						long [] pos = new long[] {x,y,z};
 						medialSurfaceCroppedRA.setPosition(pos);
-						if(medialSurfaceCroppedRA.get().get()>0) {
+						if(medialSurfaceCroppedRA.get().getIntegerLong()>0) {
 							medialSurfaceCoordinatesToSheetnessInformationMap.put(Arrays.asList(pos[0],pos[1],pos[2]),new SheetnessInformation());
 						}
 					}
@@ -552,7 +553,7 @@ public class SparkCurvature {
 			return;
 
 		String inputN5DatasetName = options.getInputN5DatasetName();
-		String inputN5Path = options.getInputN5DatasetName();
+		String inputN5Path = options.getInputN5Path();
 		String outputN5Path = options.getOutputN5Path();
 		int scaleSteps = options.getScaleSteps();
 		boolean calculateSphereness = options.getCalculateSphereness();
