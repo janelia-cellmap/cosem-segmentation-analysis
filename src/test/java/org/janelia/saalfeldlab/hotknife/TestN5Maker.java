@@ -89,6 +89,24 @@ public class TestN5Maker {
 	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapes",voxelValues, TestHelper.blockSize, DataType.UINT8);
     }
     
+    public static void createShapesForCurvature() throws IOException {
+	
+	int [][][] voxelValues = new int [150][150][150];
+	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
+	int centerX = 75, centerY=75, zCenter=25;
+	for(int x=1; x<dimensions[0]-1; x++) {
+	    for(int y=1; y<dimensions[1]-1; y++) {
+		for(int z=1; z<dimensions[2]-1; z++) {
+		    double zSaddle = zCenter+(1/50.0)*Math.pow(x-centerX,2)-(1/100.0)*Math.pow(y-centerY,2);
+		    if (z<=zSaddle) {
+			voxelValues[x][y][z] = 1;
+		    }
+		}
+	    }
+	}
+	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapesForCurvature",voxelValues, TestHelper.blockSize, DataType.UINT8);
+    }
+    
     public static void createPlanesImage() throws IOException {
    	int [][][] voxelValues = new int [150][150][150];
    	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
@@ -108,17 +126,18 @@ public class TestN5Maker {
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
-	/*
-	createShapesImage();
-	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 2, false, false);
+	
+/*	createShapesImage();
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
 	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
 
 	
 	//create additional dataset for contact site testing, default as connected components
 	createPlanesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
-
-	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
+*/
+	createShapesForCurvature();
+/*	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
 	SparkContactSites.setupSparkAndCalculateContactSites(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc,planes_cc", null, 10, 1, false,false,false);
 
 	//topological thinning: skeletonization and medial surface
@@ -126,7 +145,7 @@ public class TestN5Maker {
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_medialSurface", true);
     */
 	//calculate curvature of dataset
-	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
+//	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
 	/*
 	//calculate properties from medial surface
 	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
