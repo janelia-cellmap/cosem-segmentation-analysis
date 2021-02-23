@@ -39,6 +39,8 @@ import org.kohsuke.args4j.Option;
 
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.NumericType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
@@ -119,14 +121,14 @@ public class SparkApplyMaskToCleanData {
      * @param dimension		Dimensions
      * @param keepWithinMask	Keep within mask
      */
-    public static final <T extends NumericType<T>> void maskWithinBlock(RandomAccess<UnsignedLongType> maskDataRA,
+    public static final <T extends IntegerType<T> & NativeType<T>> void maskWithinBlock(RandomAccess<T> maskDataRA,
 	    RandomAccess<T> dataToMaskRA, long[] dimension, boolean keepWithinMask) {
 	for (int x = 0; x < dimension[0]; x++) {
 	    for (int y = 0; y < dimension[1]; y++) {
 		for (int z = 0; z < dimension[2]; z++) {
 		    long[] pos = new long[] { x, y, z };
 		    maskDataRA.setPosition(pos);
-		    if (maskDataRA.get().get() > 0) {
+		    if (maskDataRA.get().getIntegerLong() > 0) {
 
 			if (!keepWithinMask) {// then use mask as regions to set to 0
 			    dataToMaskRA.setPosition(pos);
@@ -163,7 +165,7 @@ public class SparkApplyMaskToCleanData {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final <T extends NumericType<T>> void applyMask(final JavaSparkContext sc,
+    public static final <T extends IntegerType<T> & NativeType<T>> void applyMask(final JavaSparkContext sc,
 	    final String datasetToMaskN5Path, final String datasetNameToMask, final String datasetToUseAsMaskN5Path,
 	    final String datasetNameToUseAsMask, final String n5OutputPath, final boolean keepWithinMask,
 	    final List<BlockInformation> blockInformationList) throws IOException {
@@ -180,7 +182,7 @@ public class SparkApplyMaskToCleanData {
 	    final RandomAccessibleInterval<T> dataToMask = SparkCosemHelper
 		    .getOffsetIntervalExtendZeroRAI(datasetToMaskN5Path, datasetNameToMask, offset, dimension);
 	    RandomAccess<T> dataToMaskRA = dataToMask.randomAccess();
-	    RandomAccess<UnsignedLongType> maskDataRA = SparkCosemHelper
+	    RandomAccess<T> maskDataRA = SparkCosemHelper
 		    .getOffsetIntervalExtendZeroRA(datasetToUseAsMaskN5Path, datasetNameToUseAsMask, offset, dimension);
 
 	    maskWithinBlock(maskDataRA, dataToMaskRA, dimension, keepWithinMask);

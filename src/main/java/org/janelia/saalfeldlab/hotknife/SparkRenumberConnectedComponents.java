@@ -206,7 +206,6 @@ public class SparkRenumberConnectedComponents {
 		
 	}
 
-
 	
 
 	public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {

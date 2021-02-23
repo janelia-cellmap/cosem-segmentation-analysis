@@ -44,6 +44,7 @@ import org.kohsuke.args4j.Option;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
@@ -142,22 +143,20 @@ public class SparkSeparateRibosomes {
 		final N5Reader n5Reader = new N5FSReader(n5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
-		final long[] dimensions = attributes.getDimensions();
-		final int[] blockSize = attributes.getBlockSize();
 
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
 		
 		String cytosolicString = inputDatasetName+"_cytosolic";
 		String nuclearString = inputDatasetName+"_nuclear";
 		String sheetString = inputDatasetName+"_sheet";
 		String tubeString = inputDatasetName+"_tube";
 		String classifiedString = inputDatasetName+"_classified";
-
-		for(String currentString: new String[] {cytosolicString, nuclearString, sheetString, tubeString, classifiedString}) {
-			n5Writer.createDataset(currentString, dimensions, blockSize, DataType.UINT64, new GzipCompression());
-			n5Writer.setAttribute(currentString, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, inputDatasetName)));
+	
+		for(String currentString: new String[] {cytosolicString, nuclearString, sheetString, tubeString}) {
+			SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, currentString);
 		}
-		
+		SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, classifiedString, DataType.UINT8);
+
+
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		
 	
@@ -174,14 +173,14 @@ public class SparkSeparateRibosomes {
 			IntervalView<UnsignedLongType> nuclear = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
 			IntervalView<UnsignedLongType> sheet = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
 			IntervalView<UnsignedLongType> tube = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
-			IntervalView<UnsignedLongType> classified = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
+			IntervalView<UnsignedByteType> classified = Views.offsetInterval(ArrayImgs.unsignedBytes(dimension),new long[]{0,0,0}, dimension);
 
 			RandomAccess<UnsignedLongType> ribosomesRA = ribosomes.randomAccess();
 			RandomAccess<UnsignedLongType> cytosolicRA = cytosolic.randomAccess();
 			RandomAccess<UnsignedLongType> nuclearRA = nuclear.randomAccess();
 			RandomAccess<UnsignedLongType> sheetRA = sheet.randomAccess();
 			RandomAccess<UnsignedLongType> tubeRA = tube.randomAccess();
-			RandomAccess<UnsignedLongType> classifiedRA = classified.randomAccess();
+			RandomAccess<UnsignedByteType> classifiedRA = classified.randomAccess();
 
 			for(int x=0; x<dimension[0]; x++) {
 				for(int y=0; y<dimension[1]; y++) {

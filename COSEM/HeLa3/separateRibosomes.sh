@@ -1,10 +1,12 @@
 #!/bin/bash
-
-OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/hot-knife' #`dirname "${BASH_SOURCE[0]}"`
+  
+OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analysis'
 ABS_DIR=`readlink -f "$OWN_DIR"`
 
-FLINTSTONE=$OWN_DIR/flintstone/flintstone-lsd.sh
-JAR=$OWN_DIR/target/hot-knife-0.0.4-SNAPSHOT.jar
+FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
+export LSF_PROJECT=cosem
+
+JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
 CLASS=org.janelia.saalfeldlab.hotknife.SparkSeparateRibosomes
 N_NODES=15
 

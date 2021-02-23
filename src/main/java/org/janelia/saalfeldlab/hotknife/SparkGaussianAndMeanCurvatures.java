@@ -134,21 +134,35 @@ public class SparkGaussianAndMeanCurvatures {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final <T extends IntegerType<T> & NativeType<T>> void calculateGaussianAndMeanCurvature(final JavaSparkContext sc,
-	    final String n5Path, final String inputDatasetName, final String n5OutputPath, String outputDatasetName,
-	    final List<BlockInformation> blockInformationList) throws IOException {
-	
+    public static final <T extends IntegerType<T> & NativeType<T>> void calculateGaussianAndMeanCurvature(
+	    final JavaSparkContext sc, final String n5Path, final String inputDatasetName, final String n5OutputPath,
+	    String outputDatasetName, final List<BlockInformation> blockInformationList) throws IOException {
+
 	// Create output
-	final String gaussianCurvatureDatasetName = inputDatasetName+"_gaussianCurvature";
-	final String meanCurvatureDatasetName = inputDatasetName+"_meanCurvature";
+	final String gaussianCurvatureDatasetName = inputDatasetName + "_gaussianCurvature";
+	final String meanCurvatureDatasetName = inputDatasetName + "_meanCurvature";
 
-	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, gaussianCurvatureDatasetName, DataType.FLOAT64);
-	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, meanCurvatureDatasetName, DataType.FLOAT64);
-	
-	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nx", DataType.FLOAT64);
-	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "ny", DataType.FLOAT64);
-	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nz", DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
+		gaussianCurvatureDatasetName, DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
+		meanCurvatureDatasetName, DataType.FLOAT64);
 
+	/*SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nx",
+		DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "ny",
+		DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nz",
+		DataType.FLOAT64);
+
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "xu",
+		DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "xv",
+		DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nu",
+		DataType.FLOAT64);
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nv",
+		DataType.FLOAT64);
+*/
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	rdd.foreach(blockInformation -> {
 	    // Get information for processing blocks
@@ -156,18 +170,21 @@ public class SparkGaussianAndMeanCurvatures {
 	    long[] offset = gridBlock[0];
 	    long[] dimension = gridBlock[1];
 
-	    int windowSizeParameter = 20;
-	    int halfCubeLength = 2;
-	    int padding = windowSizeParameter + halfCubeLength+1;// cube that is 5x5x5
+	    int windowSizeParameter = 35;
+	    int halfCubeLength = 10;
+	    int padding = windowSizeParameter + halfCubeLength + 3;// cube that is 5x5x5
 	    long[] paddedOffset = new long[] { offset[0] - padding, offset[1] - padding, offset[2] - padding };
 	    long[] paddedDimension = new long[] { dimension[0] + 2 * padding, dimension[1] + 2 * padding,
 		    dimension[2] + 2 * padding };
 	    // based on https://www.sciencedirect.com/science/article/pii/S1524070315000284
 
 	    // Step 1: create mask
-	    RandomAccessibleInterval<T> source = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5Path, inputDatasetName, paddedOffset, paddedDimension);
+	    RandomAccessibleInterval<T> source = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5Path,
+		    inputDatasetName, paddedOffset, paddedDimension);
 	    RandomAccessibleInterval<UnsignedLongType> mask = getInternalGraidentUsingCube(source, halfCubeLength);
-	   
+	   /* new ImageJ();
+	    ImageJFunctions.show(source);
+	    ImageJFunctions.show(mask);*/
 	    // Step 2: get normals
 	    HashMap<List<Integer>, float[]> surfaceVoxelsToNormalMap = calculateNormalsAtSurfaceVoxels(source, mask,
 		    windowSizeParameter);
@@ -175,55 +192,89 @@ public class SparkGaussianAndMeanCurvatures {
 	    // Step 3-7 at each voxel
 	    RandomAccessibleInterval<FloatType> gaussianCurvature = ArrayImgs.floats(paddedDimension);
 	    RandomAccess<FloatType> gaussianCurvatureRA = gaussianCurvature.randomAccess();
-	  /* new ImageJ();
-	    ImageJFunctions.show(source);
-	    ImageJFunctions.show(mask);
-	    System.out.println(Arrays.toString(offset));
-	    */
+
 	    RandomAccessibleInterval<FloatType> meanCurvature = ArrayImgs.floats(paddedDimension);
 	    RandomAccess<FloatType> meanCurvatureRA = meanCurvature.randomAccess();
-	    
-	    RandomAccessibleInterval<FloatType> nx = ArrayImgs.floats(paddedDimension);
+
+	  /*  RandomAccessibleInterval<FloatType> nx = ArrayImgs.floats(paddedDimension);
 	    RandomAccess<FloatType> nxRA = nx.randomAccess();
 	    RandomAccessibleInterval<FloatType> ny = ArrayImgs.floats(paddedDimension);
 	    RandomAccess<FloatType> nyRA = ny.randomAccess();
 	    RandomAccessibleInterval<FloatType> nz = ArrayImgs.floats(paddedDimension);
 	    RandomAccess<FloatType> nzRA = nz.randomAccess();
-
+	    RandomAccessibleInterval<FloatType> xv = ArrayImgs.floats(paddedDimension);
+	    RandomAccess<FloatType> xvRA = xv.randomAccess();
+	    RandomAccessibleInterval<FloatType> xu = ArrayImgs.floats(paddedDimension);
+	    RandomAccess<FloatType> xuRA = xu.randomAccess();
+	    RandomAccessibleInterval<FloatType> nu = ArrayImgs.floats(paddedDimension);
+	    RandomAccess<FloatType> nuRA = nu.randomAccess();
+	    RandomAccessibleInterval<FloatType> nv = ArrayImgs.floats(paddedDimension);
+	    RandomAccess<FloatType> nvRA = nv.randomAccess();
+*/
 	    for (Entry<List<Integer>, float[]> entry : surfaceVoxelsToNormalMap.entrySet()) {
 		List<Integer> p = entry.getKey();
-		float[] normal = entry.getValue();
+		if (p.get(0) >= padding && p.get(1) >= padding && p.get(2) >= padding
+			&& p.get(0) < dimension[0] + padding && p.get(1) < dimension[1] + padding
+			&& p.get(2) < dimension[2] + padding) {
 
-		CurvatureCalculator f = new CurvatureCalculator(normal, p, surfaceVoxelsToNormalMap);
-		f.calculateCurvatures();
+		    float[] normal = entry.getValue();
 
-		int[] pos = new int[] { p.get(0), p.get(1), p.get(2) };
-		gaussianCurvatureRA.setPosition(pos);
-		meanCurvatureRA.setPosition(pos);
+		    CurvatureCalculator f = new CurvatureCalculator(normal, p, surfaceVoxelsToNormalMap, paddedOffset);
+		    f.calculateCurvatures();
 
-		gaussianCurvatureRA.get().set(f.gaussianCurvature);
-		meanCurvatureRA.get().set(f.meanCurvature);
-		
-		nxRA.setPosition(pos);
-		nxRA.get().set(normal[0]);
-		nyRA.setPosition(pos);
-		nyRA.get().set(normal[1]);
-		nzRA.setPosition(pos);
-		nzRA.get().set(normal[2]);
-		
+		    int[] pos = new int[] { p.get(0), p.get(1), p.get(2) };
+		    gaussianCurvatureRA.setPosition(pos);
+		    meanCurvatureRA.setPosition(pos);
+
+		    gaussianCurvatureRA.get().set(f.gaussianCurvature);
+		    meanCurvatureRA.get().set(f.meanCurvature);
+
+		  /*  nxRA.setPosition(pos);
+		    nxRA.get().set(normal[0]);
+		    nyRA.setPosition(pos);
+		    nyRA.get().set(normal[1]);
+		    nzRA.setPosition(pos);
+		    nzRA.get().set(normal[2]);
+
+		    xuRA.setPosition(pos);
+		    xuRA.get().set(f.N_u[0]);
+		    xvRA.setPosition(pos);
+		    xvRA.get().set(f.N_u[1]);
+		    nuRA.setPosition(pos);
+		    nuRA.get().set(f.N_u[2]);
+		    nvRA.setPosition(pos);
+		    nvRA.get().set(f.N_v[0]);*/
+		}
+
 	    }
-	   gaussianCurvature= Views.offsetInterval(gaussianCurvature, new long [] {padding,padding,padding}, dimension);
-	   meanCurvature = Views.offsetInterval(meanCurvature, new long[] {padding,padding,padding}, dimension);
-	   
-	   final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
-	   N5Utils.saveBlock(gaussianCurvature, n5BlockWriter, gaussianCurvatureDatasetName, gridBlock[2]);
-	   N5Utils.saveBlock(meanCurvature, n5BlockWriter, meanCurvatureDatasetName, gridBlock[2]);
+	    gaussianCurvature = Views.offsetInterval(gaussianCurvature, new long[] { padding, padding, padding },
+		    dimension);
+	    meanCurvature = Views.offsetInterval(meanCurvature, new long[] { padding, padding, padding }, dimension);
 
+	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    N5Utils.saveBlock(gaussianCurvature, n5BlockWriter, gaussianCurvatureDatasetName, gridBlock[2]);
+	    N5Utils.saveBlock(meanCurvature, n5BlockWriter, meanCurvatureDatasetName, gridBlock[2]);
 
-	   N5Utils.saveBlock(Views.offsetInterval(nx, new long[] {padding,padding,padding}, dimension), n5BlockWriter, "nx", gridBlock[2]);
-	   N5Utils.saveBlock(Views.offsetInterval(ny, new long[] {padding,padding,padding}, dimension), n5BlockWriter, "ny", gridBlock[2]);
-	   N5Utils.saveBlock(Views.offsetInterval(nz, new long[] {padding,padding,padding}, dimension), n5BlockWriter, "nz", gridBlock[2]);
+	   /* N5Utils.saveBlock(Views.offsetInterval(nx, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "nx", gridBlock[2]);
+	    N5Utils.saveBlock(Views.offsetInterval(ny, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "ny", gridBlock[2]);
+	    N5Utils.saveBlock(Views.offsetInterval(nz, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "nz", gridBlock[2]);
 
+	    N5Utils.saveBlock(Views.offsetInterval(xu, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "xu", gridBlock[2]);
+	    N5Utils.saveBlock(Views.offsetInterval(xv, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "xv", gridBlock[2]);
+	    N5Utils.saveBlock(Views.offsetInterval(nu, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "nu", gridBlock[2]);
+	    N5Utils.saveBlock(Views.offsetInterval(nv, new long[] { padding, padding, padding }, dimension),
+		    n5BlockWriter, "nv", gridBlock[2]);
+*/
+	    /*
+	     * new ImageJ(); ImageJFunctions.show(source); ImageJFunctions.show(mask);
+	     * ImageJFunctions.show(nx); ImageJFunctions.show(ny); ImageJFunctions.show(nz);
+	     */
 	});
 
     }
@@ -234,13 +285,16 @@ public class SparkGaussianAndMeanCurvatures {
 	public FundamentalForm_x u, v;
 	public HashMap<List<Integer>, float[]> surfaceVoxelsToNormalMap;
 	public float[] X_u, X_v, N_u, N_v;
-	public float E, F, G, L, M, N;
+	public float E, F, G, L, M1, M2, N;
 	public float gaussianCurvature, meanCurvature;
+	public long[] offset;
 
-	CurvatureCalculator(float[] normal, List<Integer> p, HashMap<List<Integer>, float[]> surfaceVoxelsToNormalMap) {
+	CurvatureCalculator(float[] normal, List<Integer> p, HashMap<List<Integer>, float[]> surfaceVoxelsToNormalMap,
+		long[] offset) {
 	    this.normal = normal;
 	    this.p = p;
 	    this.surfaceVoxelsToNormalMap = surfaceVoxelsToNormalMap;
+	    this.offset = offset;
 
 	    float[] u = new float[3];
 	    float[] v = new float[3];
@@ -254,7 +308,8 @@ public class SparkGaussianAndMeanCurvatures {
 	}
 
 	private void calculateTangentVectors(float[] u, float[] v) {
-	    float[] sortedNormal = new float[] {Math.abs(this.normal[0]), Math.abs(this.normal[1]), Math.abs(this.normal[2]) };
+	    float[] sortedNormal = new float[] { Math.abs(this.normal[0]), Math.abs(this.normal[1]),
+		    Math.abs(this.normal[2]) };
 	    Arrays.sort(sortedNormal);
 
 	    ArrayList<float[]> bs = new ArrayList<float[]>();
@@ -263,24 +318,23 @@ public class SparkGaussianAndMeanCurvatures {
 	    bs.add(new float[] { 0, 0, 1 });
 
 	    int b_alpha_i = -1, b_beta_i = -1;
-	    
-	    //SORT BY ABSOLUTE VALUE I ASSUME?
+
+	    // SORT BY ABSOLUTE VALUE I ASSUME?
 	    for (int i = 0; i < 3; i++) {
 		if (Math.abs(this.normal[i]) == sortedNormal[0] && b_alpha_i == -1) {
 		    b_alpha_i = i;
-		}
-		else if (Math.abs(this.normal[i]) == sortedNormal[1] && b_beta_i == -1) {
+		} else if (Math.abs(this.normal[i]) == sortedNormal[1] && b_beta_i == -1) {
 		    b_beta_i = i;
 		}
 	    }
-	   
+
 	    float[] b_alpha = bs.get(b_alpha_i);
 	    float[] b_beta = bs.get(b_beta_i);
 	    for (int i = 0; i < 3; i++) {
 		u[i] = b_alpha[i] - this.normal[b_alpha_i] * this.normal[i];
 		v[i] = b_beta[i] - this.normal[b_beta_i] * this.normal[i];
 	    }
-	   
+
 	    normalize(u);
 	    normalize(v);
 	}
@@ -299,6 +353,9 @@ public class SparkGaussianAndMeanCurvatures {
 			}
 		    }
 		}
+	    }
+	    if (neighboringSurfaceVoxels.isEmpty()) {
+		System.out.println("why");
 	    }
 	    return neighboringSurfaceVoxels;
 	}
@@ -330,7 +387,9 @@ public class SparkGaussianAndMeanCurvatures {
 
 	    // second fundamental form
 	    this.L = -scalarProduct(this.X_u, this.N_u);
-	    this.M = -scalarProduct(this.X_u, this.N_v);
+	    this.M1 = -scalarProduct(this.X_u, this.N_v);
+	    this.M2 = -scalarProduct(this.X_v, this.N_u); // note that according to paper, it the off diagonal elements
+							  // aren't necessarily symmetric
 	    this.N = -scalarProduct(this.X_v, this.N_v);
 	}
 
@@ -339,21 +398,19 @@ public class SparkGaussianAndMeanCurvatures {
 	    this.getFirstFundamentalForm();
 	    this.getSecondFundamentalForm();
 
-	    this.gaussianCurvature = (L * N - M * M) / (E * G - F * F);
-	    this.meanCurvature = (float) (0.5 * (L * G - 2 * M * F + N * E) / (E * G - F * F));
+	    // note that according to paper, it the off diagonal elements aren't necessarily
+	    // symmetric so have m1 and m2 instead of just m
+	    this.gaussianCurvature = (L * N - M1 * M2) / (E * G - F * F);
+	    if (Float.isNaN(this.gaussianCurvature)) {
+//		System.out.println("why");
+	    }
+	    this.meanCurvature = (float) (0.5 * (L * G - (M1 + M2) * F + N * E) / (E * G - F * F));
 	}
 
-	public float scalarProduct(float[] v1, float[] v2) {
-	    float sp = 0;
-	    for (int d = 0; d < 3; d++) {
-		sp += v1[d] * v2[d];
-	    }
-	    return sp;
-	}
     }
 
     public static class FundamentalForm_x {
-	public float[] normal = new float[3];
+	public float[] N_p = new float[3];
 	public List<Integer> p = new ArrayList<Integer>();
 	public float[] x;
 	public float[] p_x;
@@ -364,7 +421,7 @@ public class SparkGaussianAndMeanCurvatures {
 
 	FundamentalForm_x(float[] normal, List<Integer> p, float[] x, List<List<Integer>> neighboringSurfaceVoxels,
 		HashMap<List<Integer>, float[]> surfaceVoxelsToNormalMap) {
-	    this.normal = normal;
+	    this.N_p = normal;
 	    this.p = p;
 	    this.x = x;
 	    this.surfaceVoxelsToNormalMap = surfaceVoxelsToNormalMap;
@@ -400,23 +457,52 @@ public class SparkGaussianAndMeanCurvatures {
 	private float[] projectPointOntoPlane(float[] p, List<Integer> o, float[] n) {
 	    // https://stackoverflow.com/questions/9605556/how-to-project-a-point-onto-a-plane-in-3d
 	    float[] v = { p[0] - o.get(0), p[1] - o.get(1), p[2] - o.get(2) };
-	    float[] d = { v[0] * n[0], v[1] * n[1], v[2] * n[2] };
-	    float[] projection = { p[0] - d[0] * n[0], p[1] - d[1] * n[1], p[2] - d[2] * n[2] };
+
+	    float d = scalarProduct(v, n);
+	    float[] projection = { p[0] - d * n[0], p[1] - d * n[1], p[2] - d * n[2] };
 
 	    return projection;
 	}
 
 	private float[] getN_x() {
+	    float[] N_p_plus_x = weightedAverageOfNormals_p_plus_x();// not doing linear interpolation...
+	    float[] partialDerivative = { this.N_p[0] - N_p_plus_x[0], this.N_p[1] - N_p_plus_x[1],
+		    this.N_p[2] - N_p_plus_x[2] };
+
+	    float[] normal = this.surfaceVoxelsToNormalMap.get(this.nearestNeighborSurfaceVoxel_x);
+	    float[] N_x_start = projectPointOntoPlane(new float[] { 0, 0, 0 }, nearestNeighborSurfaceVoxel_x, normal);
+	    float[] N_x_end = projectPointOntoPlane(partialDerivative, nearestNeighborSurfaceVoxel_x, normal);
+
 	    float[] N_x = new float[3];
-	    float[] N = weightedAverageOfNormals_p_plus_x();// not doing linear interpolation...
-	    float[] N_x_start = projectPointOntoPlane(new float[] { 0, 0, 0 }, nearestNeighborSurfaceVoxel_x,
-		    this.surfaceVoxelsToNormalMap.get(nearestNeighborSurfaceVoxel_x));
-	    float[] N_x_end = projectPointOntoPlane(N, nearestNeighborSurfaceVoxel_x,
-		    this.surfaceVoxelsToNormalMap.get(nearestNeighborSurfaceVoxel_x));
 	    for (int d = 0; d < 3; d++) {
 		N_x[d] = N_x_end[d] - N_x_start[d];
+		// System.out.println(N_x[d]);
 	    }
+	    if (Float.isNaN(N_x[0])) {
+		System.out.println();
+	    }
+
 	    return N_x;
+	}
+
+	private static float interpolate1D(float v1, float v2, float x) {
+	    return v1 * (1 - x) + v2 * x;
+	}
+
+	private static float interpolate2D(float v1, float v2, float v3, float v4, float x, float y) {
+
+	    float s = interpolate1D(v1, v2, x);
+	    float t = interpolate1D(v3, v4, x);
+	    return interpolate1D(s, t, y);
+	}
+
+	private static float interpolate3D(float v1, float v2, float v3, float v4, float v5, float v6, float v7,
+		float v8, float x, float y, float z) { // wiki and
+						       // https://stackoverflow.com/questions/19271568/trilinear-interpolation
+						       // need to check
+	    float s = interpolate2D(v1, v2, v3, v4, x, y);
+	    float t = interpolate2D(v5, v6, v7, v8, x, y);
+	    return interpolate1D(s, t, z);
 	}
 
 	private float[] weightedAverageOfNormals_p_plus_x() {
@@ -434,10 +520,18 @@ public class SparkGaussianAndMeanCurvatures {
 				nearestNeighborSurfaceVoxel_x.get(1) + dy, nearestNeighborSurfaceVoxel_x.get(2) + dz);
 			if (this.surfaceVoxelsToNormalMap.containsKey(possibleSurfaceVoxel)) {
 			    float[] neighboringNormal = this.surfaceVoxelsToNormalMap.get(possibleSurfaceVoxel);
-			    for (int d = 0; d < 3; d++) {
-				float dist = Math.abs(this.p_plus_x[d] - possibleSurfaceVoxel.get(d));
-				averageNormal[d] += neighboringNormal[d] / dist;
-				sum_dist[d] += 1 / dist;
+			    float[] separation = { this.p_plus_x[0] - possibleSurfaceVoxel.get(0),
+				    this.p_plus_x[1] - possibleSurfaceVoxel.get(1),
+				    this.p_plus_x[2] - possibleSurfaceVoxel.get(2) };
+			    float dist = (float) Math.sqrt(Math.pow(separation[0], 2) + Math.pow(separation[1], 2)
+				    + Math.pow(separation[2], 2));
+			    if (dist == 0) {
+				return neighboringNormal;
+			    } else {
+				for (int d = 0; d < 3; d++) {
+				    averageNormal[d] += neighboringNormal[d] / dist;
+				    sum_dist[d] += 1 / dist;
+				}
 			    }
 			}
 		    }
@@ -452,6 +546,14 @@ public class SparkGaussianAndMeanCurvatures {
 	}
     }
 
+    public static float scalarProduct(float[] v1, float[] v2) {
+	float sp = 0;
+	for (int d = 0; d < 3; d++) {
+	    sp += v1[d] * v2[d];
+	}
+	return sp;
+    }
+
     private static <T extends IntegerType<T> & NativeType<T>> RandomAccessibleInterval<UnsignedLongType> getInternalGraidentUsingCube(
 	    RandomAccessibleInterval<T> source, int halfLength) {
 	long[] dimensions = new long[3];
@@ -460,14 +562,14 @@ public class SparkGaussianAndMeanCurvatures {
 	source.dimensions(dimensions);
 	RandomAccess<T> sourceRA = source.randomAccess();
 	RandomAccessibleInterval<UnsignedLongType> mask = ArrayImgs.unsignedLongs(dimensions);
-	
+
 	RandomAccess<UnsignedLongType> maskRA = mask.randomAccess();
 	for (long x = halfLength; x < dimensions[0] - halfLength; x++) {
 	    for (long y = halfLength; y < dimensions[1] - halfLength; y++) {
 		for (long z = halfLength; z < dimensions[2] - halfLength; z++) {
 		    pos = new long[] { x, y, z };
 		    long referenceID = isInInternalGradient(sourceRA, pos, halfLength);
-		    if (referenceID>0) {
+		    if (referenceID > 0) {
 			maskRA.setPosition(pos);
 			maskRA.get().set(referenceID);
 		    }
@@ -499,9 +601,10 @@ public class SparkGaussianAndMeanCurvatures {
 		    sourceRA.setPosition(pos);
 		    long referenceID = sourceRA.get().getIntegerLong();
 		    if (referenceID > 0) {
-			//Check neighborhood
-			checkNeighborhood(pos, referenceID, sourceRA, mask, windowSizeParameter,surfaceVoxelToNormalMap);
-			
+			// Check neighborhood
+			checkNeighborhood(pos, referenceID, sourceRA, mask, windowSizeParameter,
+				surfaceVoxelToNormalMap);
+
 		    }
 		}
 	    }
@@ -509,26 +612,26 @@ public class SparkGaussianAndMeanCurvatures {
 	return surfaceVoxelToNormalMap;
     }
 
-    private static <T extends IntegerType<T> & NativeType<T>> void checkNeighborhood(int[] pos, long referenceID, RandomAccess<T> sourceRA,
-	    RandomAccessibleInterval<UnsignedLongType> mask, int windowSizeParameter, HashMap<List<Integer>, float[]> surfaceVoxelToNormalMap) {
-	int [] neighborPos;
+    private static <T extends IntegerType<T> & NativeType<T>> void checkNeighborhood(int[] pos, long referenceID,
+	    RandomAccess<T> sourceRA, RandomAccessibleInterval<UnsignedLongType> mask, int windowSizeParameter,
+	    HashMap<List<Integer>, float[]> surfaceVoxelToNormalMap) {
+	int[] neighborPos;
 	for (int dx = -1; dx <= 1; dx++) {
 	    for (int dy = -1; dy <= 1; dy++) {
 		for (int dz = -1; dz <= 1; dz++) {
 		    if (!(dx == 0 && dy == 0 && dz == 0)) {
 			neighborPos = new int[] { pos[0] + dx, pos[1] + dy, pos[2] + dz };
 			sourceRA.setPosition(neighborPos);
-			if (sourceRA.get().getIntegerLong() != referenceID) { //then pos is surface voxel
-			    float[] normal = calculateNormal(mask, pos, referenceID,windowSizeParameter);
+			if (sourceRA.get().getIntegerLong() != referenceID) { // then pos is surface voxel
+			    float[] normal = calculateNormal(mask, pos, referenceID, windowSizeParameter);
 			    // posList = Arrays.stream(pos).boxed().collect(Collectors.toList());
-			    surfaceVoxelToNormalMap.put(Arrays.asList(ArrayUtils.toObject(pos)),
-				    normal);
-			   return;
+			    surfaceVoxelToNormalMap.put(Arrays.asList(ArrayUtils.toObject(pos)), normal);
+			    return;
 			}
 		    }
 		}
 	    }
-	}	
+	}
     }
 
     private static <T extends IntegerType<T> & NativeType<T>> float[] calculateNormal(RandomAccessibleInterval<T> mask,
@@ -576,6 +679,9 @@ public class SparkGaussianAndMeanCurvatures {
 			newPos = new long[] { pos[0] + dx, pos[1] + dy, pos[2] + dz };
 			sourceRA.setPosition(newPos);
 			if (sourceRA.get().getIntegerLong() == 0) {
+			    if (pos[0] == 81 && pos[1] == 105 && pos[2] > 40) {
+				// System.out.println("hey");
+			    }
 			    return referenceID;
 			}
 		    }
@@ -587,38 +693,39 @@ public class SparkGaussianAndMeanCurvatures {
 
     private static void setupSparkAndCalculateGaussianAndMeanCurvatures(String inputN5Path, String inputN5DatasetName,
 	    String outputN5Path) throws IOException {
-	final SparkConf conf = new SparkConf().setAppName("SparkGaussiandAndMeanCurvatures");
+	final SparkConf conf = new SparkConf().setAppName("SparkGaussianAndMeanCurvatures");
 
-		String[] organelles = { "" };
-		if (inputN5DatasetName != null) {
-			organelles = inputN5DatasetName.split(",");
-		} else {
-			File file = new File(inputN5Path);
-			organelles = file.list(new FilenameFilter() {
-				@Override
-				public boolean accept(File current, String name) {
-					return new File(current, name).isDirectory();
-				}
-			});
+	String[] organelles = { "" };
+	if (inputN5DatasetName != null) {
+	    organelles = inputN5DatasetName.split(",");
+	} else {
+	    File file = new File(inputN5Path);
+	    organelles = file.list(new FilenameFilter() {
+		@Override
+		public boolean accept(File current, String name) {
+		    return new File(current, name).isDirectory();
 		}
+	    });
+	}
 
-		System.out.println(Arrays.toString(organelles));
+	System.out.println(Arrays.toString(organelles));
 
-		String finalOutputN5DatasetName = null;
-		for (String currentOrganelle : organelles) {
-			finalOutputN5DatasetName = currentOrganelle;
-			
-			// Create block information list
-			List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(inputN5Path,
-					currentOrganelle);
-			JavaSparkContext sc = new JavaSparkContext(conf);
-			calculateGaussianAndMeanCurvature(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName, blockInformationList);
+	String finalOutputN5DatasetName = null;
+	for (String currentOrganelle : organelles) {
+	    finalOutputN5DatasetName = currentOrganelle;
 
-			sc.close();
-		}
-	
+	    // Create block information list
+	    List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(inputN5Path,
+		    currentOrganelle);
+	    JavaSparkContext sc = new JavaSparkContext(conf);
+	    calculateGaussianAndMeanCurvature(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName,
+		    blockInformationList);
+
+	    sc.close();
+	}
+
     }
-    
+
     /**
      * Calculate sheetness given input args
      * 
@@ -641,6 +748,5 @@ public class SparkGaussianAndMeanCurvatures {
 	setupSparkAndCalculateGaussianAndMeanCurvatures(inputN5Path, inputN5DatasetName, outputN5Path);
 
     }
-
 
 }

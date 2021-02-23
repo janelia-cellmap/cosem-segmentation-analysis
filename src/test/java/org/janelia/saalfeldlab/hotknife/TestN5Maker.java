@@ -89,7 +89,46 @@ public class TestN5Maker {
 	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapes",voxelValues, TestHelper.blockSize, DataType.UINT8);
     }
     
-    public static void createShapesForCurvature() throws IOException {
+    public static void createShapesForCurvatureImage() throws IOException {
+   	int [][][] voxelValues = new int [150][150][150];
+   	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
+   	
+   	//cylinder
+   	double cylinderRadiusSquared = 49*49;
+   	int [] cylinderCenter = {75,50};
+   	
+   	//sphere
+   	double sphereRadiusSquared = 29*29;
+   	int [] sphereCenter = {117,117,98};
+   	
+   	//slab
+   	int slabStart = 140;
+   	
+   	
+   	for(int x=1; x<dimensions[0]-1; x++) {
+   	    for(int y=1; y<dimensions[1]-1; y++) {
+   		for(int z=1; z<dimensions[2]-1; z++) {
+   		    int deltaXCylinder = (x-cylinderCenter[0]);
+   		    int deltaYCylinder = (y-cylinderCenter[1]);
+   		    
+   		    int deltaXSphere = (x-sphereCenter[0]);
+   		    int deltaYSphere = (y-sphereCenter[1]);
+   		    int deltaZSphere = (z-sphereCenter[2]);
+   		    
+   		    if(deltaXCylinder*deltaXCylinder + deltaYCylinder*deltaYCylinder <= cylinderRadiusSquared && z<slabStart-2) voxelValues[x][y][z] = 255; //cylinder
+   		    else if(deltaXSphere*deltaXSphere + deltaYSphere*deltaYSphere + deltaZSphere*deltaZSphere <= sphereRadiusSquared) 
+   			{	
+   				    voxelValues[x][y][z] = 255; //sphere	
+   			}
+   		    else if(z>slabStart) voxelValues[x][y][z] = 255; //rectangular plane
+   		    else voxelValues[x][y][z] = 0; //should be below threshold
+   		}
+   	    }
+   	}
+   	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapesForCurvature",voxelValues, TestHelper.blockSize, DataType.UINT8);
+       }
+    
+    public static void createSaddleShapeImage() throws IOException {
 	
 	int [][][] voxelValues = new int [150][150][150];
 	long [] dimensions = TestImageMaker.getDimensions(voxelValues);
@@ -104,7 +143,7 @@ public class TestN5Maker {
 		}
 	    }
 	}
-	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "shapesForCurvature",voxelValues, TestHelper.blockSize, DataType.UINT8);
+	TestImageMaker.writeCustomImage(TestHelper.testN5Locations, "saddleShape",voxelValues, TestHelper.blockSize, DataType.UINT8);
     }
     
     public static void createPlanesImage() throws IOException {
@@ -127,16 +166,17 @@ public class TestN5Maker {
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
 	
-/*	createShapesImage();
+	createShapesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
 	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
 
-	
+/*	
 	//create additional dataset for contact site testing, default as connected components
 	createPlanesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
 */
-	createShapesForCurvature();
+	createShapesForCurvatureImage();
+	createSaddleShapeImage();
 /*	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
 	SparkContactSites.setupSparkAndCalculateContactSites(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc,planes_cc", null, 10, 1, false,false,false);
 
@@ -156,6 +196,9 @@ public class TestN5Maker {
 	//general information output
 	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
 */
+	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testFileLocations, "shapes_cc");
+	SparkRenumberN5.setupSparkAndRenumberN5(TestHelper.testFileLocations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc");
+	
     }
 }
 
