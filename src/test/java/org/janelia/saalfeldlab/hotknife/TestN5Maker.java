@@ -165,28 +165,27 @@ public class TestN5Maker {
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
-	
+/*	
 	createShapesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
 	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
 
-/*	
+	
 	//create additional dataset for contact site testing, default as connected components
 	createPlanesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
-*/
 	createShapesForCurvatureImage();
 	createSaddleShapeImage();
-/*	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
+	//do contact sites between the cylinderAndRectangle and twoPlanes datasets
 	SparkContactSites.setupSparkAndCalculateContactSites(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc,planes_cc", null, 10, 1, false,false,false);
 
 	//topological thinning: skeletonization and medial surface
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_skeleton", false);
 	SparkTopologicalThinning.setupSparkAndDoTopologicalThinning(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", "_medialSurface", true);
-    */
+    
 	//calculate curvature of dataset
 //	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
-	/*
+	
 	//calculate properties from medial surface
 	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
   
@@ -196,9 +195,10 @@ public class TestN5Maker {
 	//general information output
 	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
 */
-	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testFileLocations, "shapes_cc");
+	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc",null);
 	SparkRenumberN5.setupSparkAndRenumberN5(TestHelper.testFileLocations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc");
-	
+	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc_medialSurface","shapes_cc_renumbered");
+
     }
 }
 
