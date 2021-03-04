@@ -143,9 +143,9 @@ public class SparkGaussianAndMeanCurvatures {
 	final String meanCurvatureDatasetName = inputDatasetName + "_meanCurvature";
 
 	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
-		gaussianCurvatureDatasetName, DataType.FLOAT64);
+		gaussianCurvatureDatasetName, DataType.FLOAT32);
 	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
-		meanCurvatureDatasetName, DataType.FLOAT64);
+		meanCurvatureDatasetName, DataType.FLOAT32);
 
 	/*SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath, "nx",
 		DataType.FLOAT64);
