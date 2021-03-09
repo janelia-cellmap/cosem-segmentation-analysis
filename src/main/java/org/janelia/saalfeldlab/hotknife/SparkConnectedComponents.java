@@ -530,8 +530,16 @@ public class SparkConnectedComponents {
 			for (Entry <Long,Long> e : currentBlockInformation.edgeComponentIDtoRootIDmap.entrySet()) {
 				Long key = e.getKey();
 				Long value = e.getValue();
-				currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, 
-						rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels ? 0L : value);
+				if(rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels) {
+				    currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, 0L);
+				    currentBlockInformation.allRootIDs.remove(key);
+				    currentBlockInformation.allRootIDs.remove(value);
+				}else{
+				    currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, value);
+				    if(! key.equals(value)) { //all we want in the end is the root ids
+					currentBlockInformation.allRootIDs.remove(key);
+				    }
+				}
 			}
 			currentBlockInformation.maxVolumeObjectIDs = maxVolumeObjectIDs;
 		}
@@ -689,6 +697,7 @@ public class SparkConnectedComponents {
 		long[] defaultIDtoGlobalID = new long[(int) (blockSize[0] * blockSize[1] * blockSize[2])];
 		Set<Long> edgeComponentIDs = new HashSet<>();
 		Map<Long,Long> allComponentIDtoVolumeMap = new HashMap<>();
+
 		while (o.hasNext()) {
 
 			final UnsignedLongType tO = o.next();
@@ -728,11 +737,12 @@ public class SparkConnectedComponents {
 						edgeComponentIDs.add(defaultIDtoGlobalID[defaultID]);
 					}
 					allComponentIDtoVolumeMap.put(defaultIDtoGlobalID[defaultID], allComponentIDtoVolumeMap.getOrDefault(defaultIDtoGlobalID[defaultID],0L)+1);
+					blockInformation.allRootIDs.add(defaultIDtoGlobalID[defaultID]);
+
 				}
 			}
 		}
-		Set<Long> allComponentIDs = allComponentIDtoVolumeMap.keySet();
-		Set<Long> selfContainedObjectIDs = Sets.difference(allComponentIDs, edgeComponentIDs);
+		Set<Long> selfContainedObjectIDs = Sets.difference(blockInformation.allRootIDs, edgeComponentIDs);
 		
 		final Map<Long,Long> edgeComponentIDtoVolumeMap =  edgeComponentIDs.stream()
 		        .filter(allComponentIDtoVolumeMap::containsKey)
@@ -749,6 +759,7 @@ public class SparkConnectedComponents {
 			final UnsignedLongType tO = o.next();
 			if (selfContainedComponentIDtoVolumeMap.getOrDefault(tO.get(), Long.MAX_VALUE) <= minimumVolumeCutoff){
 				tO.set(0);
+				blockInformation.allRootIDs.remove(tO.get());
 			}
 			else { //large enough to keep or on edge
 				Long objectID = tO.get();
@@ -783,11 +794,11 @@ public class SparkConnectedComponents {
 	 * @param minimumVolumeCutoff		Minimum volume cutoff, above which objects will be kept
 	 * @return							Map of edge component ID to volumes
 	 */
-	public static Map<Long,Long> computeConnectedComponents(RandomAccessibleInterval<UnsignedByteType> sourceInterval,
+	public static BlockInformation computeConnectedComponentsForContactingPair(BlockInformation blockInformation, RandomAccessibleInterval<UnsignedByteType> sourceInterval,
 			RandomAccessibleInterval<UnsignedLongType> output, long[] outputDimensions, long[] blockSize,
 			long[] offset, double thresholdIntensityCutoff, int minimumVolumeCutoff){
 		
-		return computeConnectedComponents(sourceInterval, output, outputDimensions, blockSize, offset, thresholdIntensityCutoff, minimumVolumeCutoff, new DiamondShape(1));
+		return computeConnectedComponentsForContactingPair(blockInformation, sourceInterval, output, outputDimensions, blockSize, offset, thresholdIntensityCutoff, minimumVolumeCutoff, new DiamondShape(1));
 	}
 	
 	/**
@@ -803,16 +814,20 @@ public class SparkConnectedComponents {
 	 * @param shape						Rectangular or diamond shape for connected components
 	 * @return							Map of edge component ID to volumes
 	 */
-	public static Map<Long,Long> computeConnectedComponents(RandomAccessibleInterval<UnsignedByteType> sourceInterval,
+	public static BlockInformation computeConnectedComponentsForContactingPair(BlockInformation blockInformation, RandomAccessibleInterval<UnsignedByteType> sourceInterval,
 			RandomAccessibleInterval<UnsignedLongType> output, long[] outputDimensions, long[] blockSize,
 			long[] offset, double thresholdIntensityCutoff, int minimumVolumeCutoff, Shape shape) {
 
-		BlockInformation blockInformation = new BlockInformation();
-		blockInformation = computeConnectedComponents(blockInformation, sourceInterval,
+		BlockInformation temporaryBlockInformation = new BlockInformation();
+		temporaryBlockInformation = computeConnectedComponents(temporaryBlockInformation, sourceInterval,
 				output,  outputDimensions,  blockSize,
 				offset, thresholdIntensityCutoff, minimumVolumeCutoff, shape);
 
-		return blockInformation.edgeComponentIDtoVolumeMap;
+		blockInformation.currentContactingPairEdgeComponentIDtoVolumeMap = temporaryBlockInformation.edgeComponentIDtoVolumeMap;
+		blockInformation.edgeComponentIDtoVolumeMap.putAll(blockInformation.currentContactingPairEdgeComponentIDtoVolumeMap);
+		blockInformation.allRootIDs.addAll(temporaryBlockInformation.allRootIDs);
+		
+		return blockInformation;
 	}
 	
 	/**

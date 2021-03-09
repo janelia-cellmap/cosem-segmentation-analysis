@@ -593,11 +593,10 @@ public class SparkContactSites {
 		int minimumVolumeCutoffInVoxels = (int) Math
 			.ceil(minimumVolumeCutoff / Math.pow(pixelResolution[0], 3));
 
-		Map<Long, Long> currentPairEdgeComponentIDtoVolumeMap = SparkConnectedComponents
-			.computeConnectedComponents(currentPairBinarized, output, outputDimensions, blockSizeL, offset,
+		currentBlockInformation  = SparkConnectedComponents
+			.computeConnectedComponentsForContactingPair(currentBlockInformation, currentPairBinarized, output, outputDimensions, blockSizeL, offset,
 				1, minimumVolumeCutoffInVoxels);
-		currentBlockInformation.edgeComponentIDtoVolumeMap.putAll(currentPairEdgeComponentIDtoVolumeMap);
-		for (Long edgeComponentID : currentPairEdgeComponentIDtoVolumeMap.keySet()) {
+		for (Long edgeComponentID : currentBlockInformation.currentContactingPairEdgeComponentIDtoVolumeMap.keySet()) {
 		    if (sameOrganelleClass) {
 			Long o1 = organellePairs.get(0);
 			Long o2 = organellePairs.get(1);
@@ -864,11 +863,10 @@ public class SparkContactSites {
 		int minimumVolumeCutoffInVoxels = (int) Math
 			.ceil(minimumVolumeCutoff / Math.pow(pixelResolution[0], 3));
 
-		Map<Long, Long> currentPairEdgeComponentIDtoVolumeMap = SparkConnectedComponents
-			.computeConnectedComponents(currentPairBinarized, output, outputDimensions, blockSizeL, offset,
+		currentBlockInformation = SparkConnectedComponents
+			.computeConnectedComponentsForContactingPair(currentBlockInformation,currentPairBinarized, output, outputDimensions, blockSizeL, offset,
 				1, minimumVolumeCutoffInVoxels, new RectangleShape(1, false));
-		currentBlockInformation.edgeComponentIDtoVolumeMap.putAll(currentPairEdgeComponentIDtoVolumeMap);
-		for (Long edgeComponentID : currentPairEdgeComponentIDtoVolumeMap.keySet()) {
+		for (Long edgeComponentID : currentBlockInformation.currentContactingPairEdgeComponentIDtoVolumeMap.keySet()) {
 		    if (sameOrganelleClass) {
 			Long o1 = organellePairs.get(0);
 			Long o2 = organellePairs.get(1);
@@ -1026,11 +1024,10 @@ public class SparkContactSites {
 
 	// Compute the connected components which returns the components along the block
 	// edges, and update the corresponding blockInformation object
-	Map<Long, Long> currentPairEdgeComponentIDtoVolumeMap = SparkConnectedComponents.computeConnectedComponents(
+	currentBlockInformation = SparkConnectedComponents.computeConnectedComponentsForContactingPair(currentBlockInformation,
 		currentPairBinarized, output, outputDimensions, blockSizeL, offset, 1, minimumVolumeCutoffInVoxels,
 		new RectangleShape(1, false));
-	currentBlockInformation.edgeComponentIDtoVolumeMap.putAll(currentPairEdgeComponentIDtoVolumeMap);
-	for (Long edgeComponentID : currentPairEdgeComponentIDtoVolumeMap.keySet()) {
+	for (Long edgeComponentID : currentBlockInformation.currentContactingPairEdgeComponentIDtoVolumeMap.keySet()) {
 	    if (sameOrganelleClass) {
 		List<Long> sortedPair = organelle1ID < organelle2ID ? Arrays.asList(organelle1ID, organelle2ID)
 			: Arrays.asList(organelle2ID, organelle1ID);
@@ -1061,11 +1058,10 @@ public class SparkContactSites {
 
 	// Compute the connected components which returns the components along the block
 	// edges, and update the corresponding blockInformation object
-	Map<Long, Long> currentPairEdgeComponentIDtoVolumeMap = SparkConnectedComponents.computeConnectedComponents(
+	currentBlockInformation = SparkConnectedComponents.computeConnectedComponentsForContactingPair(currentBlockInformation,
 		currentPairBinarized, output, outputDimensions, blockSizeL, offset, 1, minimumVolumeCutoffInVoxels,
 		new RectangleShape(1, false));
-	currentBlockInformation.edgeComponentIDtoVolumeMap.putAll(currentPairEdgeComponentIDtoVolumeMap);
-	for (Long edgeComponentID : currentPairEdgeComponentIDtoVolumeMap.keySet()) {
+	for (Long edgeComponentID : currentBlockInformation.currentContactingPairEdgeComponentIDtoVolumeMap.keySet()) {
 	    long[] edgeComponentGlobalPos = SparkCosemHelper.convertGlobalIDtoPosition(edgeComponentID,
 		    outputDimensions);
 	    List<Long> organellePair = currentIndependentContactSiteVoxelInformation
@@ -1345,8 +1341,16 @@ public class SparkContactSites {
 	    for (Entry<Long, Long> e : currentBlockInformation.edgeComponentIDtoRootIDmap.entrySet()) {
 		Long key = e.getKey();
 		Long value = e.getValue();
-		currentBlockInformation.edgeComponentIDtoRootIDmap.put(key,
-			rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels ? 0L : value);
+		if(rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels) {
+		    currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, 0L);
+		    currentBlockInformation.allRootIDs.remove(key);
+		    currentBlockInformation.allRootIDs.remove(value);
+		}else{
+		    currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, value);
+		    if(! key.equals(value)) { //all we want in the end is the root ids
+			currentBlockInformation.allRootIDs.remove(key);
+		    }
+		}
 	    }
 	}
 

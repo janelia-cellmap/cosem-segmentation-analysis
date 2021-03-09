@@ -67,6 +67,11 @@ public class UnionFindDGA {
 		}		
 	}
 	
+	public void getRenumberedRoots() {
+		getFinalRoots();
+		renumberRoots();
+	}
+	
 	
 	public void renumberRoots() {
 		Map <Long, Long> renumberRootsMap = new HashMap<Long, Long>();

@@ -202,7 +202,7 @@ public class SparkProcessLightData {
 			// Compute the connected components which returns the components along the block
 			// edges, and update the corresponding blockInformation object
 			int minimumVolumeCutoffInVoxels = (int) Math.ceil(minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
-			currentBlockInformation.edgeComponentIDtoVolumeMap = SparkConnectedComponents.computeConnectedComponents(sourceConverted, output, outputDimensions,
+			currentBlockInformation = SparkConnectedComponents.computeConnectedComponents(currentBlockInformation, sourceConverted, output, outputDimensions,
 					blockSizeL, offset, thresholdIntensityCutoff, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
@@ -289,7 +289,7 @@ public class SparkProcessLightData {
 			// Compute the connected components which returns the components along the block
 			// edges, and update the corresponding blockInformation object
 			int minimumVolumeCutoffInVoxels = 0;
-			currentBlockInformation.edgeComponentIDtoVolumeMap = SparkConnectedComponents.computeConnectedComponents(contactSites, output, outputDimensions,
+			currentBlockInformation = SparkConnectedComponents.computeConnectedComponents(currentBlockInformation, contactSites, output, outputDimensions,
 					blockSizeL, offset, thresholdIntensityCutoff, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack

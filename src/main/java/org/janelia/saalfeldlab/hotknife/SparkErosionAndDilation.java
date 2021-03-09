@@ -23,8 +23,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -206,12 +208,15 @@ public class SparkErosionAndDilation {
 
 	// Create output
 	final String protrusions = inputDatasetName + "_protrusions";
+	final String mainBodies = inputDatasetName + "_mainBodies";
 
 	
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
 		protrusions,attributes.getDataType());
+	SparkCosemHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
+		mainBodies,attributes.getDataType());
 	
 	rdd.foreach(blockInformation -> {
 	    // Get information for processing blocks
@@ -230,48 +235,73 @@ public class SparkErosionAndDilation {
 	    // Step 1: create mask
 	    RandomAccessibleInterval<T> source = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5Path,
 		    inputDatasetName, paddedOffset, paddedDimension);
+	    RandomAccessibleInterval<T> mainBodiesRAI = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5Path,
+		    inputDatasetName, paddedOffset, paddedDimension);
 	    RandomAccessibleInterval<T> erosion = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5OutputPath,
 		    inputDatasetName+"_eroded", paddedOffset, paddedDimension);
 	    
-	    final RandomAccessibleInterval<NativeBoolType> erosionConverted = Converters.convert(
-		    erosion,
-			(a, b) -> {
-				b.set(a.getIntegerLong()>0);
-			},
-			new NativeBoolType());
-	    ArrayImg<FloatType, FloatArray> distanceTransform = ArrayImgs.floats(paddedDimension);
-	    DistanceTransform.binaryTransform(erosionConverted, distanceTransform, DISTANCE_TYPE.EUCLIDIAN);
-	    
-	    ArrayRandomAccess<FloatType> distanceTransformRA = distanceTransform.randomAccess();
 	    RandomAccess<T> sourceRA = source.randomAccess();
+	    RandomAccess<T> mainBodiesRA = mainBodiesRAI.randomAccess();
+
+	 /*   Set<Long> idsInBlock = new HashSet<Long>();
 	    for(long x=0; x<paddedDimension[0]; x++) {
 		for(long y=0; y<paddedDimension[1]; y++) {
 		    for(long z=0; z<paddedDimension[2];z++) {
 			long [] pos = new long [] {x,y,z};
 			sourceRA.setPosition(pos);
-			if(sourceRA.get().getIntegerLong()>0) {//then it was in original  
-			    distanceTransformRA.setPosition(pos);
-			    if(keepProtrusions) {
-        			    if(distanceTransformRA.get().get()<=distanceSquared){
-        				sourceRA.get().setZero();
-        			    }
-			    }
-			    else {
-				  if(distanceTransformRA.get().get()>distanceSquared){
-      					sourceRA.get().setZero();
-				  }
-			    }
+			Long id = sourceRA.get().getIntegerLong();
+			if(id!=0) {
+			    idsInBlock.add(id);
 			}
+			
 		    }
 		}
 	    }
+	    */
+	    
+	   // for (long currentID : idsInBlock) {//loop over all ids to make sure don't expand ids into eachother
+	    
+        	    final RandomAccessibleInterval<NativeBoolType> erosionConverted = Converters.convert(
+        		    erosion,
+        			(a, b) -> {
+        				b.set(a.getIntegerLong()>0);
+        			},
+        			new NativeBoolType());
+        	    ArrayImg<FloatType, FloatArray> distanceTransform = ArrayImgs.floats(paddedDimension);
+        	    DistanceTransform.binaryTransform(erosionConverted, distanceTransform, DISTANCE_TYPE.EUCLIDIAN);
+
+        	    ArrayRandomAccess<FloatType> distanceTransformRA = distanceTransform.randomAccess();
+        	    for(long x=0; x<paddedDimension[0]; x++) {
+        		for(long y=0; y<paddedDimension[1]; y++) {
+        		    for(long z=0; z<paddedDimension[2];z++) {
+        			long [] pos = new long [] {x,y,z};
+        			sourceRA.setPosition(pos);
+        			if(sourceRA.get().getIntegerLong()>0) {//then it was in original  
+        			    distanceTransformRA.setPosition(pos);
+        			    if(distanceTransformRA.get().get()<=distanceSquared){
+      					sourceRA.get().setZero();
+        			    }
+        			    else {
+        				mainBodiesRA.setPosition(pos);
+        				mainBodiesRA.get().setZero();
+        			    }
+        			   
+        			}
+        		    }
+        		}
+        	    }
+	   // }
 	
 	    
 	    source = Views.offsetInterval(source, new long[] { padding, padding, padding },
 		    dimension);
+	    
+	    mainBodiesRAI = Views.offsetInterval(mainBodiesRAI, new long[] { padding, padding, padding },
+		    dimension);
 
 	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
 	    N5Utils.saveBlock(source, n5BlockWriter, protrusions, gridBlock[2]);
+	    N5Utils.saveBlock(mainBodiesRAI, n5BlockWriter, mainBodies, gridBlock[2]);
 	   
 	});
 
@@ -307,14 +337,16 @@ public class SparkErosionAndDilation {
 	    JavaSparkContext sc = new JavaSparkContext(conf);
 	    erode(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName, distance,
 		    blockInformationList);
-	    dilate(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName, distance, true,
+	    
+	    //dilate by extra 10% to ensure that small voxel islands are removed
+	    dilate(sc, inputN5Path, currentOrganelle, outputN5Path, finalOutputN5DatasetName, 1.1f*distance, true,
 		    blockInformationList);
 	    
-	    erode(sc, outputN5Path, finalOutputN5DatasetName+"_protrusions", outputN5Path, finalOutputN5DatasetName+"_protrusions", 1,
+	   /* erode(sc, outputN5Path, finalOutputN5DatasetName+"_protrusions", outputN5Path, finalOutputN5DatasetName+"_protrusions", 1,
 		    blockInformationList);
 	    dilate(sc, outputN5Path, finalOutputN5DatasetName+"_protrusions", outputN5Path, finalOutputN5DatasetName+"_protrusions", 1, false,
 		    blockInformationList);
-
+	    */
 	    sc.close();
 	}
 
