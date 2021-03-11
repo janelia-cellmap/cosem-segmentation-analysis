@@ -31,6 +31,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.saalfeldlab.hotknife.util.Grid;
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5Reader;
@@ -91,20 +92,25 @@ public class SparkCompareDatasets {
 
 	public static final <T extends NativeType<T>>boolean compareDatasets (
 			final JavaSparkContext sc,
-			final String n5Path,
+			final String n5Path1,
 			final String n5Path2,
 			final String datasetName1,
 			final String datasetName2,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		/*
-		 * grid block size for parallelization to minimize double loading of
-		 * blocks
-		 */
+		final N5Reader n5Reader1 = new N5FSReader(n5Path1);
+		final N5Reader n5Reader2 = new N5FSReader(n5Path2);
+
+		DataType dataType1 = n5Reader1.getDatasetAttributes(datasetName1).getDataType();
+		DataType dataType2 = n5Reader2.getDatasetAttributes(datasetName1).getDataType();
+		if(!dataType1.equals(dataType2)) {
+		    System.out.println("Different data types!");
+		    return false;
+		}
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		JavaRDD<Map<List<Long>,Boolean>> javaRDD = rdd.map(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = new N5FSReader(n5Path1);
 			final N5Reader n5BlockReader2 = new N5FSReader(n5Path2);
 			long[] offset = gridBlock[0];
 			long[] dimension = gridBlock[1];

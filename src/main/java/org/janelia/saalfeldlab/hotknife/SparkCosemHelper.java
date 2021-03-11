@@ -19,6 +19,7 @@ import ch.qos.logback.core.Context;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.NumericType;
@@ -134,6 +135,25 @@ public class SparkCosemHelper {
 		return Views.offsetInterval(
 				Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5Reader, dataset)),
 				offset, dimension);
+	}
+	
+	public static <T extends NumericType<T>> IntervalView< T > getZerosIntegerImageRAI(long [] dimension, DataType dataType) {
+		
+		if(dataType == DataType.UINT8) {
+		    return (IntervalView<T>) Views.offsetInterval(ArrayImgs.unsignedBytes(dimension),new long[]{0,0,0}, dimension);
+		}
+		else if(dataType == DataType.UINT16) {
+		    return (IntervalView<T>) Views.offsetInterval(ArrayImgs.unsignedShorts(dimension),new long[]{0,0,0}, dimension);
+
+		}
+		else if(dataType == DataType.UINT32) {
+		    return (IntervalView<T>) Views.offsetInterval(ArrayImgs.unsignedInts(dimension),new long[]{0,0,0}, dimension);
+
+		}
+		else if(dataType == DataType.UINT64) {
+		    return (IntervalView<T>) Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
+		}
+		return null;
 	}
 	
 	public static <T extends NumericType<T>> RandomAccess < T >  getOffsetIntervalExtendZeroRA(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {

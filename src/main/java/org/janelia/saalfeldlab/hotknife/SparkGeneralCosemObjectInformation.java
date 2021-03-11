@@ -43,6 +43,7 @@ import org.kohsuke.args4j.Option;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.Views;
 
@@ -112,6 +113,25 @@ public class SparkGeneralCosemObjectInformation {
 		}
 		
 	}
+	
+	public static class InBoundsChecker{
+	    private long[] offset, overallDimensions;
+
+	    public InBoundsChecker(long [] offset, long [] overallDimensions) {
+		this.offset = offset;
+		this.overallDimensions = overallDimensions;
+	    }
+	    
+	    public boolean voxelIsInBounds(long [] position) {
+		long [] overallPosition = new long [] {position[0]+offset[0],position[1]+offset[1],position[2]+offset[2]};
+		if(overallPosition[0]<0 || overallPosition[1]<0 || overallPosition[2]<0 || 
+			overallPosition[0]>=overallDimensions[0] || overallPosition[1]>=overallDimensions[1] || overallPosition[2]>=overallDimensions[2]) {
+		    return false;
+		}
+		return true;
+	    }
+	    
+	}
 
 	/**
 	 * Find connected components on a block-by-block basis and write out to
@@ -132,7 +152,7 @@ public class SparkGeneralCosemObjectInformation {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final <T extends NativeType<T>> void calculateVolumeAreaCount(
+	public static final <T extends IntegerType<T> & NativeType<T>> void calculateVolumeAreaCount(
 			final JavaSparkContext sc, final String inputN5Path, final String[] datasetNames, final String outputDirectory,
 			List<BlockInformation> blockInformationList) throws IOException {
 		
@@ -150,7 +170,6 @@ public class SparkGeneralCosemObjectInformation {
 		final N5Reader n5Reader = new N5FSReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final long[] outputDimensions = attributes.getDimensions();
-		final long outOfBoundsValue = outputDimensions[0]*outputDimensions[1]*outputDimensions[2]+1;
 		double [] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
 		int[] datasetOffset = IOHelper.getOffset(n5Reader, inputN5DatasetName);
 
@@ -172,20 +191,20 @@ public class SparkGeneralCosemObjectInformation {
 			
 			// Read in source block
 			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);	
-			final RandomAccessibleInterval<UnsignedLongType> sourceInterval = Views.offsetInterval(Views.extendValue(
-					(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName),new UnsignedLongType(outOfBoundsValue)), extendedOffset, extendedDimension);
-			final RandomAccess<UnsignedLongType> sourceRandomAccess = sourceInterval.randomAccess();
+			final RandomAccessibleInterval<T> sourceInterval = Views.offsetInterval(Views.extendZero(
+					(RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)), extendedOffset, extendedDimension);
+			final RandomAccess<T> sourceRandomAccess = sourceInterval.randomAccess();
 			
-			RandomAccess<UnsignedLongType> organelle1ContactBoundaryRandomAccess = null,organelle2ContactBoundaryRandomAccess=null, organelle1RandomAccess = null, organelle2RandomAccess = null;
+			RandomAccess<T> organelle1ContactBoundaryRandomAccess = null,organelle2ContactBoundaryRandomAccess=null, organelle1RandomAccess = null, organelle2RandomAccess = null;
 			if(datasetNames.length>1) {
-				organelle1ContactBoundaryRandomAccess = Views.offsetInterval(Views.extendValue(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, organelle1ContactBoundaryN5Dataset),new UnsignedLongType(outOfBoundsValue)), extendedOffset, extendedDimension).randomAccess();
-				organelle2ContactBoundaryRandomAccess = Views.offsetInterval(Views.extendValue(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, organelle2ContactBoundaryN5Dataset),new UnsignedLongType(outOfBoundsValue)), extendedOffset, extendedDimension).randomAccess();
-				organelle1RandomAccess = Views.offsetInterval(Views.extendValue(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, datasetNames[0]),new UnsignedLongType(outOfBoundsValue)), extendedOffset, extendedDimension).randomAccess();
-				organelle2RandomAccess = Views.offsetInterval(Views.extendValue(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, datasetNames[1].split("_pairs")[0]),new UnsignedLongType(outOfBoundsValue)), extendedOffset, extendedDimension).randomAccess();
+				organelle1ContactBoundaryRandomAccess = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, organelle1ContactBoundaryN5Dataset)), extendedOffset, extendedDimension).randomAccess();
+				organelle2ContactBoundaryRandomAccess = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, organelle2ContactBoundaryN5Dataset)), extendedOffset, extendedDimension).randomAccess();
+				organelle1RandomAccess = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, datasetNames[0])), extendedOffset, extendedDimension).randomAccess();
+				organelle2RandomAccess = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, datasetNames[1].split("_pairs")[0])), extendedOffset, extendedDimension).randomAccess();
 
 			}
 			
@@ -199,16 +218,18 @@ public class SparkGeneralCosemObjectInformation {
 			voxelsToCheck.add(new long[] {0, 1, 0});
 			voxelsToCheck.add(new long[] {0, 0, -1});
 			voxelsToCheck.add(new long[] {0, 0, 1});
-			
+			InBoundsChecker inBoundsChecker = new InBoundsChecker(extendedOffset, outputDimensions);
 			for(long x=1; x<=dimension[0]; x++) {
 				for(long y=1; y<=dimension[1]; y++) {
 					for(long z=1; z<=dimension[2]; z++) {
-						sourceRandomAccess.setPosition(new long[] {x,y,z});
-						long currentVoxelValue=sourceRandomAccess.get().get();
+					    	long [] pos = new long[] {x,y,z};
+						sourceRandomAccess.setPosition(pos);
 						
-						if (currentVoxelValue >0  && currentVoxelValue != outOfBoundsValue ) {
+						long currentVoxelValue=sourceRandomAccess.get().getIntegerLong();
+						
+						if (currentVoxelValue >0  && inBoundsChecker.voxelIsInBounds(pos) ) {
 							
-							int surfaceAreaContributionOfVoxelInFaces = getSurfaceAreaContributionOfVoxelInFaces(sourceRandomAccess, outOfBoundsValue, voxelsToCheck);
+							int surfaceAreaContributionOfVoxelInFaces = getSurfaceAreaContributionOfVoxelInFaces(sourceRandomAccess, inBoundsChecker, voxelsToCheck);
 							
 							long[] absolutePosition = {(long) (x+extendedOffset[0]+datasetOffset[0]/pixelResolution[0]),(long) (y+extendedOffset[1]+datasetOffset[1]/pixelResolution[1]),(long) (z+extendedOffset[2]+datasetOffset[2]/pixelResolution[2])};
 							long[] organelleIDs = {-1, -1};
@@ -216,13 +237,13 @@ public class SparkGeneralCosemObjectInformation {
 							if(datasetNames.length>1) {
 								organelle1ContactBoundaryRandomAccess.setPosition(new long[] {x,y,z});
 								organelle2ContactBoundaryRandomAccess.setPosition(new long[] {x,y,z});
-								organelleIDs[0] = organelle1ContactBoundaryRandomAccess.get().get();
-								organelleIDs[1] = organelle2ContactBoundaryRandomAccess.get().get();
+								organelleIDs[0] = organelle1ContactBoundaryRandomAccess.get().getIntegerLong();
+								organelleIDs[1] = organelle2ContactBoundaryRandomAccess.get().getIntegerLong();
 
 								organelle1RandomAccess.setPosition(new long[] {x,y,z});
 								organelle2RandomAccess.setPosition(new long[] {x,y,z});
-								organelleSurfaceAreas[0] = getSurfaceAreaContributionOfVoxelInFaces(organelle1RandomAccess, outOfBoundsValue, voxelsToCheck);
-								organelleSurfaceAreas[1] = getSurfaceAreaContributionOfVoxelInFaces(organelle2RandomAccess, outOfBoundsValue, voxelsToCheck);
+								organelleSurfaceAreas[0] = getSurfaceAreaContributionOfVoxelInFaces(organelle1RandomAccess, inBoundsChecker, voxelsToCheck);
+								organelleSurfaceAreas[1] = getSurfaceAreaContributionOfVoxelInFaces(organelle2RandomAccess, inBoundsChecker, voxelsToCheck);
 							}
 							addNewVoxelToObjectInformation(objectIDtoInformationMap, currentVoxelValue, absolutePosition, surfaceAreaContributionOfVoxelInFaces, organelleIDs, organelleSurfaceAreas);
 						}
@@ -303,8 +324,8 @@ public class SparkGeneralCosemObjectInformation {
 	
 	
 	
-	public static int getSurfaceAreaContributionOfVoxelInFaces(final RandomAccess<UnsignedLongType> sourceRandomAccess, long outOfBoundsValue, List<long[]> voxelsToCheck) {
-		long referenceVoxelValue = sourceRandomAccess.get().get();
+	public static <T extends IntegerType<T> & NativeType<T>> int getSurfaceAreaContributionOfVoxelInFaces(final RandomAccess<T> sourceRandomAccess, InBoundsChecker inBoundsChecker, List<long[]> voxelsToCheck) {
+		long referenceVoxelValue = sourceRandomAccess.get().getIntegerLong();
 		final long sourceRandomAccessPosition[] = {sourceRandomAccess.getLongPosition(0), sourceRandomAccess.getLongPosition(1), sourceRandomAccess.getLongPosition(2)};
 		int surfaceAreaContributionOfVoxelInFaces = 0;
 		
@@ -312,7 +333,7 @@ public class SparkGeneralCosemObjectInformation {
 			for(long[] currentVoxel : voxelsToCheck) {
 				final long currentPosition[] = {sourceRandomAccessPosition[0]+currentVoxel[0], sourceRandomAccessPosition[1]+currentVoxel[1], sourceRandomAccessPosition[2]+currentVoxel[2]};
 				sourceRandomAccess.setPosition(currentPosition);
-				if(sourceRandomAccess.get().get() != referenceVoxelValue && sourceRandomAccess.get().get() !=outOfBoundsValue) {
+				if(sourceRandomAccess.get().getIntegerLong() != referenceVoxelValue && inBoundsChecker.voxelIsInBounds(currentPosition)) {
 					surfaceAreaContributionOfVoxelInFaces ++;
 				}
 			}

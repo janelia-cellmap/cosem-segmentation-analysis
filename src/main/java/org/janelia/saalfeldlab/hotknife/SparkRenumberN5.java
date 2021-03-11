@@ -110,7 +110,7 @@ public class SparkRenumberN5 {
 
     }
 
-    public static DataType getDataType(int numberOfObjects) {
+    public static DataType getDataType(Long numberOfObjects) {
 	if (numberOfObjects <= Math.pow(2, 8)) {
 	    return DataType.UINT8;
 	} else if (numberOfObjects <= Math.pow(2, 16)) {
@@ -121,16 +121,22 @@ public class SparkRenumberN5 {
 	    return DataType.UINT64;
 	}
     }
-
     public static final <T extends IntegerType<T> & NativeType<T>> void renumberN5(final JavaSparkContext sc,
 	    final String n5Path, final String datasetName, final String n5OutputPath,
-	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList)
+	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList) throws IOException
+    {
+	renumberN5(sc, n5Path, datasetName, n5OutputPath, broadcastedRenumberingMap, blockInformationList, false);
+    }
+    
+    public static final <T extends IntegerType<T> & NativeType<T>> void renumberN5(final JavaSparkContext sc,
+	    final String n5Path, final String datasetName, final String n5OutputPath,
+	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList, boolean addSuffixRegardless)
 	    throws IOException {
 
-	int numberOfObjects = broadcastedRenumberingMap.value().size() + 1;// add 1 for zero
+	Long numberOfObjects = (long) (broadcastedRenumberingMap.value().size() + 1);// add 1 for zero
 	DataType dataType = getDataType(numberOfObjects);
 	String tempDatasetName = datasetName;
-	if(n5OutputPath==n5Path) {
+	if(n5OutputPath==n5Path || addSuffixRegardless) {
 	    tempDatasetName+="_renumbered";
 	}
 	final String outputDatasetName = tempDatasetName;
@@ -147,8 +153,7 @@ public class SparkRenumberN5 {
 
 	    Cursor<UnsignedLongType> sourceCursor = SparkCosemHelper.getOffsetIntervalExtendZeroC(n5Path, datasetName,
 		    offset, dimension);
-	    RandomAccessibleInterval<T> output = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(n5OutputPath,
-		    outputDatasetName, offset, dimension);
+	    RandomAccessibleInterval<T> output = SparkCosemHelper.getZerosIntegerImageRAI(dimension, dataType);
 	    RandomAccess<T> outputRA = output.randomAccess();
 
 	    Map<Long, Long> renumberingMap = broadcastedRenumberingMap.value();
@@ -190,9 +195,12 @@ public class SparkRenumberN5 {
 	csvReader.close();
 	return renumberingMap;
     }
-
     public static void setupSparkAndRenumberN5(String inputDirectory, String inputN5DatasetName, String inputN5Path,
-	    String outputN5Path, String renumberingCSV) throws Exception {
+	    String outputN5Path, String renumberingCSV) throws Exception{
+	setupSparkAndRenumberN5(inputDirectory, inputN5DatasetName, inputN5Path, outputN5Path, renumberingCSV, false);
+    }
+    public static void setupSparkAndRenumberN5(String inputDirectory, String inputN5DatasetName, String inputN5Path,
+	    String outputN5Path, String renumberingCSV, boolean addSuffixRegardless) throws Exception {
 	final SparkConf conf = new SparkConf().setAppName("SparkRenumberN5");	
 
 	// Get all organelles
@@ -223,7 +231,7 @@ public class SparkRenumberN5 {
 	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap = sc.broadcast(renumberingMap);
 
 	    renumberN5(sc, inputN5Path, organelles[i], outputN5Path,
-		    broadcastedRenumberingMap, blockInformationList);
+		    broadcastedRenumberingMap, blockInformationList, addSuffixRegardless);
 	
 	    sc.close();
 	}

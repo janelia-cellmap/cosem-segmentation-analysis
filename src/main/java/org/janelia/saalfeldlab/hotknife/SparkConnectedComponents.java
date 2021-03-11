@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 import org.janelia.saalfeldlab.hotknife.ops.SimpleGaussRA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -48,6 +49,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.spark_project.guava.collect.Sets;
 
+import net.imagej.ImageJ;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
@@ -61,7 +63,9 @@ import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.LongArray;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.BoolType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Intervals;
@@ -590,13 +594,29 @@ public class SparkConnectedComponents {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final void mergeConnectedComponents(final JavaSparkContext sc,
+	public static final <T extends IntegerType<T> & NativeType<T>> void mergeConnectedComponents(final JavaSparkContext sc,
 			final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, boolean onlyKeepLargestComponent,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		// Set up writer for output
-		SparkCosemHelper.createDatasetUsingTemplateDataset(inputN5Path, inputN5DatasetName, inputN5Path, outputN5DatasetName);
 		
+		//Set up renumbering
+		Map<Long,Long> renumbering = new HashMap<Long,Long>();
+		Long renumberedID = 1L;
+		for(BlockInformation currentBlockInformation : blockInformationList) {
+		    for(Long currentID : currentBlockInformation.allRootIDs) {
+			if(!renumbering.containsKey(currentID)) {
+			    renumbering.put(currentID, renumberedID);
+			    renumberedID++;
+			}
+		    }
+		}
+		Broadcast<Map<Long, Long>> broadcastedRenumbering = sc.broadcast(renumbering);
+		
+		DataType dataType = SparkRenumberN5.getDataType(renumberedID-1);
+		// Set up writer for output
+		SparkCosemHelper.createDatasetUsingTemplateDataset(inputN5Path, inputN5DatasetName, inputN5Path, outputN5DatasetName, dataType);
+				
+				
 		// Set up and run rdd to relabel objects and write out blocks
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(currentBlockInformation -> {
@@ -608,34 +628,43 @@ public class SparkConnectedComponents {
 
 			// Read in source data
 			final RandomAccessibleInterval<UnsignedLongType> sourceInterval = SparkCosemHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
-
+			
+			RandomAccessibleInterval<T> output = SparkCosemHelper.getZerosIntegerImageRAI(dimension, dataType);
+			RandomAccess<T> outputRA = output.randomAccess();
+			
 			//Relabel objects
 			Cursor<UnsignedLongType> sourceCursor = Views.flatIterable(sourceInterval).cursor();
+			long [] pos;
+			Long rootID;
+			Map<Long,Long> bRenumbering = broadcastedRenumbering.getValue();
 			while (sourceCursor.hasNext()) {
 				final UnsignedLongType voxel = sourceCursor.next();
-				long currentValue = voxel.getLong();
+				long currentValue = voxel.get();
 				if(onlyKeepLargestComponent) {
 					if(currentValue>0) {
-						Long rootID = edgeComponentIDtoRootIDmap.getOrDefault(currentValue, currentValue); //either on edge, or contained internally
+					    	pos = new long [] {sourceCursor.getLongPosition(0),sourceCursor.getLongPosition(1),sourceCursor.getLongPosition(2)};
+						rootID = edgeComponentIDtoRootIDmap.getOrDefault(currentValue, currentValue); //either on edge, or contained internally
 						if (currentBlockInformation.maxVolumeObjectIDs.contains(rootID)) {//then it is on edge
-							voxel.setLong(rootID);	
-						}
-						else {
-							voxel.setLong(0);
+							outputRA.setPosition(pos);
+							outputRA.get().setInteger(bRenumbering.get(rootID));
 						}
 					}
 				}
 				else {
-					if (currentValue > 0 && edgeComponentIDtoRootIDmap.containsKey(currentValue)) {
-						Long currentRoot = edgeComponentIDtoRootIDmap.get(currentValue);
-						voxel.setLong(currentRoot);
+				    if(currentValue>0) {
+				    	pos = new long [] {sourceCursor.getLongPosition(0),sourceCursor.getLongPosition(1),sourceCursor.getLongPosition(2)};
+				    	rootID = edgeComponentIDtoRootIDmap.getOrDefault(currentValue, currentValue); //either on edge, or contained internally
+					outputRA.setPosition(pos);
+    					if(rootID>0) {
+    					    outputRA.get().setInteger(bRenumbering.get(rootID));
 					}
+				    }
 				}
 			}
 
 			//Write out block
 			final N5Writer n5WriterLocal = new N5FSWriter(inputN5Path);
-			N5Utils.saveBlock(sourceInterval, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
+			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 		});
 
 	}
