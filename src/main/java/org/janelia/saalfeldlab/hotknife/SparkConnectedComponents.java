@@ -47,7 +47,8 @@ import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-import org.spark_project.guava.collect.Sets;
+
+import com.google.common.collect.Sets;
 
 import net.imagej.ImageJ;
 import net.imglib2.Cursor;
@@ -610,6 +611,7 @@ public class SparkConnectedComponents {
 			}
 		    }
 		}
+		System.out.println(renumbering);
 		Broadcast<Map<Long, Long>> broadcastedRenumbering = sc.broadcast(renumbering);
 		
 		DataType dataType = SparkRenumberN5.getDataType(renumberedID-1);
@@ -787,8 +789,8 @@ public class SparkConnectedComponents {
 		while (o.hasNext()) {
 			final UnsignedLongType tO = o.next();
 			if (selfContainedComponentIDtoVolumeMap.getOrDefault(tO.get(), Long.MAX_VALUE) <= minimumVolumeCutoff){
-				tO.set(0);
-				blockInformation.allRootIDs.remove(tO.get());
+			    blockInformation.allRootIDs.remove(tO.get());
+			    tO.set(0);
 			}
 			else { //large enough to keep or on edge
 				Long objectID = tO.get();
@@ -1094,6 +1096,7 @@ public class SparkConnectedComponents {
 			double x = (thresholdIntensityCutoff-127)/128.0; 
 			thresholdDistance = 50*0.5*Math.log( (1.0 + x) / (1.0 - x));
 		}
+		//something wrong in numbering
 		standardConnectedComponentAnalysisWorkflow(options.getInputN5DatasetName(), options.getInputN5Path(), options.getMaskN5Path(), options.getOutputN5Path(), options.getOutputN5DatasetSuffix(), thresholdDistance, options.getMinimumVolumeCutoff(), options.getOnlyKeepLargestComponent(), smooth);
 
 	}

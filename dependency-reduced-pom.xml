@@ -31,7 +31,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>org.janelia.saalfeldlab.hotknife.SparkConvertTiffSeries</mainClass>
+                  <mainClass>org.janelia.saalfeldlab.hotknife.SparkConnectedComponents</mainClass>
                 </transformer>
               </transformers>
             </configuration>

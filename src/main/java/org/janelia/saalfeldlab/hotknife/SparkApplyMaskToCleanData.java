@@ -43,7 +43,9 @@ import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.NumericType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.Views;
 
@@ -190,17 +192,51 @@ public class SparkApplyMaskToCleanData {
 	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
 	    DataType datatype = new N5FSReader(datasetToMaskN5Path).getDatasetAttributes(datasetNameToMask)
 		    .getDataType();
-	    if (datatype == DataType.FLOAT64) {
+	    
+	    N5Utils.saveBlock(dataToMask, n5BlockWriter, maskedDatasetName,
+		blockInformation.gridBlock[2]);
+	   /* if (datatype == DataType.FLOAT64) {
 		N5Utils.saveBlock((RandomAccessibleInterval<FloatType>) dataToMask, n5BlockWriter, maskedDatasetName,
 			blockInformation.gridBlock[2]);
 	    } else if (datatype == DataType.UINT64) {
 		N5Utils.saveBlock((RandomAccessibleInterval<UnsignedLongType>) dataToMask, n5BlockWriter,
 			maskedDatasetName, blockInformation.gridBlock[2]);
-	    } else {
-		N5Utils.saveBlock((RandomAccessibleInterval<UnsignedByteType>) dataToMask, n5BlockWriter,
+	    } else if(datatype == DataType.UINT32){
+		N5Utils.saveBlock((RandomAccessibleInterval<UnsignedIntType>) dataToMask, n5BlockWriter,
 			maskedDatasetName, blockInformation.gridBlock[2]);
 	    }
+	    else if(datatype == DataType.UINT16) {
+		N5Utils.saveBlock((RandomAccessibleInterval<UnsignedShortType>) dataToMask, n5BlockWriter,
+			maskedDatasetName, blockInformation.gridBlock[2]);
+	    }
+	    else if(datatype == DataType.UINT8) {
+		N5Utils.saveBlock((RandomAccessibleInterval<UnsignedByteType>) dataToMask, n5BlockWriter,
+			maskedDatasetName, blockInformation.gridBlock[2]);
+	    }*/
 	});
+    }
+    
+    public static void setupSparkAndApplyMaskToCleanData(String datasetToUseAsMaskN5Path,
+	    String datasetNameToUseAsMask, String datasetToMaskN5Path, String organellesToMaskString, String outputN5Path,
+	    boolean keepWithinMask) throws IOException {
+	
+	final SparkConf conf = new SparkConf().setAppName("SparkApplyMaskToCleanData");
+	
+	String[] organellesToMask = organellesToMaskString.split(",");
+
+	for (String mask : datasetNameToUseAsMask.split(",")) {
+	    for (String organelleToMask : organellesToMask) {
+
+		List<BlockInformation> blockInformationList = BlockInformation
+			.buildBlockInformationList(datasetToMaskN5Path, organelleToMask);
+		JavaSparkContext sc = new JavaSparkContext(conf);
+		applyMask(sc, datasetToMaskN5Path, organelleToMask, datasetToUseAsMaskN5Path, mask,
+			outputN5Path, keepWithinMask, blockInformationList);
+
+		sc.close();
+	    }
+	}
+	
     }
 
     /**
@@ -218,23 +254,14 @@ public class SparkApplyMaskToCleanData {
 	if (!options.parsedSuccessfully)
 	    return;
 
-	final SparkConf conf = new SparkConf().setAppName("SparkApplyMaskToCleanData");
-
 	String datasetToUseAsMaskN5Path = options.getDatasetToUseAsMaskN5Path();
-	String[] organellesToMask = options.getDatasetNameToMask().split(",");
+	String datasetNameToUseAsMask = options.getDatasetNameToUseAsMask();
+	String datasetToMaskN5Path = options.getDatasetToMaskN5Path();
+	String organellesToMaskString = options.getDatasetNameToMask();
+	String outputN5Path = options.getOutputN5Path();
+	boolean keepWithinMask = options.getKeepWithinMask();
 
-	for (String mask : options.getDatasetNameToUseAsMask().split(",")) {
-	    for (String organelleToMask : organellesToMask) {
-
-		List<BlockInformation> blockInformationList = BlockInformation
-			.buildBlockInformationList(options.getDatasetToMaskN5Path(), organelleToMask);
-		JavaSparkContext sc = new JavaSparkContext(conf);
-		applyMask(sc, options.getDatasetToMaskN5Path(), organelleToMask, datasetToUseAsMaskN5Path, mask,
-			options.getOutputN5Path(), options.getKeepWithinMask(), blockInformationList);
-
-		sc.close();
-	    }
-	}
-
+	setupSparkAndApplyMaskToCleanData(datasetToUseAsMaskN5Path, datasetNameToUseAsMask, datasetToMaskN5Path, outputN5Path, organellesToMaskString,keepWithinMask);
     }
+
 }
