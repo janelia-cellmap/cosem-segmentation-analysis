@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 import java.util.List;
 
-import org.janelia.cosem.helpers.Bressenham3D;
+import org.janelia.cosem.util.Bressenham3D;
 import org.junit.Test;
 
 public class Bressenham3DTest {

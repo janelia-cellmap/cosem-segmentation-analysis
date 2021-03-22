@@ -28,46 +28,77 @@
  * #L%
  */
 
-package org.janelia.saalfeldlab.hotknife.ops;
+package org.janelia.cosem.ops;
 
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
-import net.imglib2.Cursor;
+import org.scijava.plugin.Parameter;
+import org.scijava.plugin.Plugin;
+
+import net.imagej.ops.Ops;
+import net.imagej.ops.special.computer.AbstractUnaryComputerOp;
 import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.algorithm.gauss3.Gauss3;
+import net.imglib2.algorithm.gauss3.SeparableSymmetricConvolution;
+import net.imglib2.exception.IncompatibleTypeException;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.NumericType;
-import net.imglib2.view.Views;
 
 /**
- * Gradient
+ * Simple Gaussian filter Op
  *
  * @author Stephan Saalfeld
+ * @author Christian Dietz (University of Konstanz)
+ * @param <T> type of input and output
  */
-public class GradientForward<T extends NumericType<T> & NativeType<T>> implements Consumer<RandomAccessibleInterval<T>> {
+@Plugin(type = Ops.Filter.Gauss.class, priority = 0.5)
+public class SimpleGaussRA<T extends NumericType<T> & NativeType<T>> extends
+	AbstractUnaryComputerOp<RandomAccessible<T>, RandomAccessibleInterval<T>>
+	implements Ops.Filter.Gauss, Consumer<RandomAccessibleInterval<T>> {
 
-	final private RandomAccessible<T> sourceA;
-	final private RandomAccessible<T> sourceB;
+	@Parameter
+	final private double[] sigmas;
 
-	public GradientForward(final RandomAccessible<T> source, final int axis) {
+	public SimpleGaussRA(final double[] sigmas) {
 
-		final long[] offset = new long[source.numDimensions()];
-		offset[axis] = -1;
-		sourceA = source;
-		sourceB = Views.translate(source, offset);
+		this.sigmas = sigmas;
+	}
+
+	@Override
+	public void compute(
+			final RandomAccessible<T> input,
+			final RandomAccessibleInterval<T> output) {
+
+		try {
+			SeparableSymmetricConvolution.convolve(
+					Gauss3.halfkernels(sigmas),
+					input,
+					output,
+					Executors.newSingleThreadExecutor());
+		} catch (final IncompatibleTypeException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	@Override
+	public void run() {
+
+		compute(in(), out());
+
+	}
+
+	@Override
+	public RandomAccessibleInterval<T> run(final RandomAccessibleInterval<T> output) {
+
+		compute(in(), output);
+		return output;
 	}
 
 	@Override
 	public void accept(final RandomAccessibleInterval<T> output) {
 
-		final Cursor<T> a = Views.flatIterable(Views.interval(sourceA, output)).cursor();
-		final Cursor<T> b = Views.flatIterable(Views.interval(sourceB, output)).cursor();
-		final Cursor<T> c = Views.flatIterable(output).cursor();
-
-		while (c.hasNext()) {
-			final T t = c.next();
-			t.set(b.next());
-			t.sub(a.next());
-		}
+		compute(in(), output);
 	}
 }

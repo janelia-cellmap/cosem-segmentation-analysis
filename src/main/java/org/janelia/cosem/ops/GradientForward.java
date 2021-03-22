@@ -28,71 +28,46 @@
  * #L%
  */
 
-package org.janelia.saalfeldlab.hotknife.ops;
+package org.janelia.cosem.ops;
 
-import org.scijava.plugin.Parameter;
-import org.scijava.plugin.Plugin;
+import java.util.function.Consumer;
 
-import net.imagej.ops.special.computer.AbstractUnaryComputerOp;
-import net.imglib2.FinalInterval;
+import net.imglib2.Cursor;
 import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.NumericType;
-import net.imglib2.view.MixedTransformView;
 import net.imglib2.view.Views;
 
 /**
- * Simple Gaussian filter Op
+ * Gradient
  *
  * @author Stephan Saalfeld
- * @author Christian Dietz (University of Konstanz)
- * @param <T> type of input and output
  */
-@Plugin(type = org.janelia.saalfeldlab.hotknife.ops.SimpleClaheRA.class, priority = 0.5)
-public class SimpleClaheRA<T extends NumericType<T> & NativeType<T>> extends
-	AbstractUnaryComputerOp<RandomAccessible<T>, RandomAccessibleInterval<T>> {
+public class GradientForward<T extends NumericType<T> & NativeType<T>> implements Consumer<RandomAccessibleInterval<T>> {
 
-	@Parameter
-	final private int radius;
-	final int bins;
-	final int threshold;
+	final private RandomAccessible<T> sourceA;
+	final private RandomAccessible<T> sourceB;
 
-	public SimpleClaheRA(
-			final int radius,
-			final int bins,
-			final int threshold) {
+	public GradientForward(final RandomAccessible<T> source, final int axis) {
 
-		this.radius = radius;
-		this.bins = bins;
-		this.threshold = threshold;
+		final long[] offset = new long[source.numDimensions()];
+		offset[axis] = -1;
+		sourceA = source;
+		sourceB = Views.translate(source, offset);
 	}
 
 	@Override
-	public void compute(
-			final RandomAccessible<T> input,
-			final RandomAccessibleInterval<T> output) {
+	public void accept(final RandomAccessibleInterval<T> output) {
 
-		final FinalInterval sliceInterval =
-				new FinalInterval(
-						new long[] {output.min(0) - radius, output.min(1) - radius},
-						new long[] {output.max(0) + radius, output.max(1) + radius});
+		final Cursor<T> a = Views.flatIterable(Views.interval(sourceA, output)).cursor();
+		final Cursor<T> b = Views.flatIterable(Views.interval(sourceB, output)).cursor();
+		final Cursor<T> c = Views.flatIterable(output).cursor();
 
-		/* assuming output is 3D */
-		for (long z = output.min(2); z <= output.max(2); ++z) {
-
-			final MixedTransformView<T> inputSlice = Views.hyperSlice(input, 2, z);
-//			Flat.getFastInstance().run(imp, radius, bins, slope, mask, composite);
-
+		while (c.hasNext()) {
+			final T t = c.next();
+			t.set(b.next());
+			t.sub(a.next());
 		}
-//		try {
-//			SeparableSymmetricConvolution.convolve(
-//					Gauss3.halfkernels(sigmas),
-//					input,
-//					output,
-//					Executors.newSingleThreadExecutor());
-//		} catch (final IncompatibleTypeException e) {
-//			throw new RuntimeException(e);
-//		}
 	}
 }

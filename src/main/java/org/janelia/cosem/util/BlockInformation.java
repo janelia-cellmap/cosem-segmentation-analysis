@@ -1,4 +1,4 @@
-package org.janelia.cosem.helpers;
+package org.janelia.cosem.util;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.janelia.saalfeldlab.hotknife.util.Grid;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5Reader;

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.janelia.cosem.helpers.FloydWarshall;
+import org.janelia.cosem.util.FloydWarshall;
 import org.junit.Test;
 
 public class FloydWarshallTest {

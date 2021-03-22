@@ -1,4 +1,4 @@
-package org.janelia.cosem.helpers;
+package org.janelia.cosem.util;
 
 import java.util.HashMap;
 import java.util.List;

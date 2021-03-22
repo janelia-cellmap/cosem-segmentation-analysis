@@ -2,7 +2,7 @@ package org.janelia.cosem.analysis;
 
 import static org.junit.Assert.*;
 
-import org.janelia.cosem.helpers.CorrectlyPaddedDistanceTransform;
+import org.janelia.cosem.util.CorrectlyPaddedDistanceTransform;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.junit.Test;
 
