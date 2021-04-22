@@ -13,9 +13,9 @@ CLASS=org.janelia.cosem.analysis.SparkIDFilter
 N_NODES=10
 ARGV="\
 --inputN5Path '/groups/cosem/cosem/ackermand/paperResultsWithFullPaths/collected/jrc_ctl-id8_a01.n5'  \
---inputN5DatasetName '494_roi5' \
---outputN5DatasetSuffix '_id_1' \
---idsToKeep '1' \
+--inputN5DatasetName '494_roi5_protrusions' \
+--outputN5DatasetSuffix '_id_2' \
+--idsToKeep '2' \
 "
 
 export RUNTIME="48:00"

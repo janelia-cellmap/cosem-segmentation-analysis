@@ -46,6 +46,7 @@ import org.kohsuke.args4j.Option;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.Views;
 
@@ -105,7 +106,7 @@ public class SparkVolumeFilterConnectedComponents {
 		volumeFilterConnectedComponents(sc, inputN5Path, inputN5DatasetName, outputN5DatasetName, minimumVolumeCutoff, new HashSet<Long>(), blockInformationList);
 	}
 	
-	public static final <T extends NativeType<T>> void volumeFilterConnectedComponents(
+	public static final <T extends IntegerType<T> & NativeType<T>> void volumeFilterConnectedComponents(
 			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, Set<Long> idsToKeep,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
@@ -118,7 +119,7 @@ public class SparkVolumeFilterConnectedComponents {
 				final N5Writer n5Writer = new N5FSWriter(inputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
 				n5Writer.createDataset(outputN5DatasetName, attributes.getDimensions(), blockSize,
-						org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
+						attributes.getDataType(), attributes.getCompression());
 				n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, inputN5DatasetName)));
 				
 				// Set up rdd to parallelize over blockInformation list and run RDD, which will
@@ -133,13 +134,13 @@ public class SparkVolumeFilterConnectedComponents {
 			
 					// Read in source block
 					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
-					final RandomAccessibleInterval<UnsignedLongType> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
-					Cursor<UnsignedLongType> objectsCursor = Views.flatIterable(objects).cursor();
+					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
+					Cursor<T> objectsCursor = Views.flatIterable(objects).cursor();
 					
 					HashMap<Long,Long> objectIDtoVolumeMap = new HashMap();
 					while(objectsCursor.hasNext()) {
-						UnsignedLongType voxel = objectsCursor.next();
-						long objectID = voxel.get();
+						T voxel = objectsCursor.next();
+						long objectID = voxel.getIntegerLong();
 						objectIDtoVolumeMap.put(objectID, objectIDtoVolumeMap.getOrDefault(objectID,0L)+1);
 					}
 					return objectIDtoVolumeMap;
@@ -162,14 +163,14 @@ public class SparkVolumeFilterConnectedComponents {
 			
 					// Read in source block
 					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
-					final RandomAccessibleInterval<UnsignedLongType> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
-					Cursor<UnsignedLongType> objectsCursor = Views.flatIterable(objects).cursor();
+					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
+					Cursor<T> objectsCursor = Views.flatIterable(objects).cursor();
 					
 					while(objectsCursor.hasNext()) {
-						UnsignedLongType voxel = objectsCursor.next();
-						long objectID = voxel.get();
+						T voxel = objectsCursor.next();
+						long objectID = voxel.getIntegerLong();
 						if(finalObjectIDtoVolumeMap.get(objectID) <= minimumVolumeCutoffInVoxels && !idsToKeep.contains(objectID)) {
-							voxel.set(0);
+							voxel.setInteger(0);
 						}
 					}
 					// Write out output to temporary n5 stack

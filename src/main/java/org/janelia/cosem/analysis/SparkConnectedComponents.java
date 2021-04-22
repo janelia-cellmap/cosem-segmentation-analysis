@@ -262,7 +262,7 @@ public class SparkConnectedComponents {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final List<BlockInformation> blockwiseConnectedComponents(
+	public static final <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> blockwiseConnectedComponents(
 			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName,
 			final String outputN5Path, final String outputN5DatasetName, final String maskN5PathName,
 			final double thresholdIntensityCutoff, double minimumVolumeCutoff, List<BlockInformation> blockInformationList, boolean findHoles, boolean smooth) throws IOException {
@@ -293,9 +293,9 @@ public class SparkConnectedComponents {
 			RandomAccessibleInterval<UnsignedByteType> sourceInterval = null;
 			if(findHoles) {
 				//If doing hole filling, need to set 0s to values for connected components
-				RandomAccessibleInterval<UnsignedLongType> connectedComponents = ProcessingHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
+				RandomAccessibleInterval<T> connectedComponents = ProcessingHelper.getOffsetIntervalExtendZeroRAI(inputN5Path, inputN5DatasetName, offset, dimension);
 				sourceInterval = Converters.convert(connectedComponents,
-						(a, b) -> b.set(a.getLong()==0 ? 255 : 0 ), new UnsignedByteType());
+						(a, b) -> b.set(a.getIntegerLong()==0 ? 255 : 0 ), new UnsignedByteType());
 			}
 			else {
 				if(smooth) {

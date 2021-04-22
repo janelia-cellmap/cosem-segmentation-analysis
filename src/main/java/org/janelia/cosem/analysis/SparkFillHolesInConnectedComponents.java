@@ -37,6 +37,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
@@ -47,6 +48,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
+import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform;
@@ -57,9 +59,17 @@ import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.FloatArray;
 import net.imglib2.img.basictypeaccess.array.LongArray;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.BoolType;
+import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.NumericType;
+import net.imglib2.type.numeric.integer.GenericIntType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.FloatType;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 /**
@@ -179,7 +189,22 @@ public class SparkFillHolesInConnectedComponents {
 		
 		}
 	}
-
+	
+	private static final<T extends IntegerType<T> & NativeType<T>> T getMaxValue(DataType dataType){
+	    if(dataType == DataType.UINT8) {
+		return (T) new UnsignedByteType((int) (Math.pow(2,8)-1));
+	    }
+	    if(dataType == DataType.UINT16) {
+		return (T) new UnsignedShortType((int) (Math.pow(2,16)-1));
+	    }
+	    else if(dataType == DataType.UINT32) {
+		return (T) new UnsignedIntType((int) (Math.pow(2,32)-1));
+	    }
+	    else if(dataType == DataType.UINT64) {
+		return (T) new UnsignedLongType((int) (Math.pow(2,64)-1));
+	    }
+	    return null;
+	}
 	/**
 	 * Find connected components on a block-by-block basis and write out to
 	 * temporary n5.
@@ -199,10 +224,12 @@ public class SparkFillHolesInConnectedComponents {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final MapsForFillingHoles getMapsForFillingHoles(
+	public static final <T extends IntegerType<T> & NativeType<T>> MapsForFillingHoles getMapsForFillingHoles(
 			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName,
 			List<BlockInformation> blockInformationList) throws IOException {
-
+	   	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final DataType dataType = n5Reader.getDatasetAttributes(inputN5DatasetName).getDataType();
+	
 		// Set up rdd to parallelize over blockInformation list and run RDD, which will
 		// return updated block information containing list of components on the edge of
 		// the corresponding block
@@ -220,8 +247,10 @@ public class SparkFillHolesInConnectedComponents {
 			long[] fullDimensions = new long [] {0,0,0};
 			((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)).dimensions(fullDimensions);
 			long maxValue = fullDimensions[0]*fullDimensions[1]*fullDimensions[2]*10;//no object should have a value larger than this
-			final RandomAccessibleInterval<UnsignedLongType> objects = Views.offsetInterval(Views.extendValue((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName), new UnsignedLongType(maxValue)),paddedOffset, paddedDimension); 
-			final RandomAccessibleInterval<UnsignedLongType> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),paddedOffset, paddedDimension);
+			//TODO: fix edge case here?
+			new UnsignedByteType();
+			final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendValue((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName), getMaxValue(dataType)),paddedOffset, paddedDimension); 
+			final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),paddedOffset, paddedDimension);
 			
 			final RandomAccessibleInterval<BoolType> objectsBinarized = Converters.convert(objects,
 					(a, b) -> b.set(a.getRealDouble() > 0), new BoolType());
@@ -232,8 +261,8 @@ public class SparkFillHolesInConnectedComponents {
 	
 			//Reassign black values
 			ArrayCursor<FloatType> distanceFromObjectCursor = distanceFromObjects.cursor();
-			RandomAccess<UnsignedLongType> holeComponentsRandomAccess = holes.randomAccess();
-			RandomAccess<UnsignedLongType> objectsRandomAccess = objects.randomAccess();
+			RandomAccess<T> holeComponentsRandomAccess = holes.randomAccess();
+			RandomAccess<T> objectsRandomAccess = objects.randomAccess();
 			
 			
 			Map<Long,Long> holeIDtoObjectIDMap = new HashMap<Long,Long>();
@@ -247,7 +276,7 @@ public class SparkFillHolesInConnectedComponents {
 				if (distanceFromObjectSquared>0 && distanceFromObjectSquared <= 3) { //3 for corners. If true, then is on edge of hole
 					if(pos[0]>0 && pos[0]<=dimension[0] && pos[1]>0 && pos[1]<=dimension[1] && pos[2]>0 && pos[2]<=dimension[2]) {//Then in original block
 						holeComponentsRandomAccess.setPosition(pos);
-						long holeID = holeComponentsRandomAccess.get().get();
+						long holeID = holeComponentsRandomAccess.get().getIntegerLong();
 
 						for(int dx=-1; dx<=1; dx++) {
 							for(int dy=-1; dy<=1; dy++) {
@@ -255,7 +284,7 @@ public class SparkFillHolesInConnectedComponents {
 									if((dx==0 && dy==0 && dz!=0) || (dx==0 && dz==0 && dy!=0) || (dy==0 && dz==0 && dx!=0)) {//diamond checking
 										int newPos [] = new int[] {pos[0]+dx, pos[1]+dy, pos[2]+dz};
 										objectsRandomAccess.setPosition(newPos);
-										long objectID = objectsRandomAccess.get().get();
+										long objectID = objectsRandomAccess.get().getIntegerLong();
 										if(objectID>0) {//can still be outside
 											if ( objectID == maxValue || (holeIDtoObjectIDMap.containsKey(holeID) && objectID != holeIDtoObjectIDMap.get(holeID)) ) //is touching outside or then has already been assigned to an object and is not really a hole since it is touching multiple objects
 												holeIDtoObjectIDMap.put(holeID,0L);
@@ -281,7 +310,7 @@ public class SparkFillHolesInConnectedComponents {
 		return mapsForFillingHoles;
 	}
 	
-	public static final  void fillHoles(
+	public static final <T extends IntegerType<T> & NativeType<T>> void fillHoles(
 			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, MapsForFillingHoles mapsForFillingHoles,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
@@ -293,7 +322,7 @@ public class SparkFillHolesInConnectedComponents {
 				final N5Writer n5Writer = new N5FSWriter(inputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
 				n5Writer.createDataset(outputN5DatasetName, attributes.getDimensions(), blockSize,
-						org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
+						attributes.getDataType(), attributes.getCompression());
 				n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, inputN5DatasetName)));
 
 				
@@ -309,21 +338,21 @@ public class SparkFillHolesInConnectedComponents {
 			
 					// Read in source block
 					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
-					final RandomAccessibleInterval<UnsignedLongType> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
-					final RandomAccessibleInterval<UnsignedLongType> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),offset, dimension);
-					ArrayImg<UnsignedLongType, LongArray> output = ArrayImgs.unsignedLongs(dimension);	
+					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
+					final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),offset, dimension);
+					final IntervalView<T> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, attributes.getDataType()) ;
 
-					ArrayCursor<UnsignedLongType> outputCursor = output.cursor();
-					RandomAccess<UnsignedLongType> objectsRandomAccess = objects.randomAccess();
-					RandomAccess<UnsignedLongType> holesRandomAccess = holes.randomAccess();
+					Cursor<T> outputCursor = output.cursor();
+					RandomAccess<T> objectsRandomAccess = objects.randomAccess();
+					RandomAccess<T> holesRandomAccess = holes.randomAccess();
 					while(outputCursor.hasNext()) {
-						UnsignedLongType voxel = outputCursor.next();
+						T voxel = outputCursor.next();
 						long pos [] = new long[] {outputCursor.getLongPosition(0), outputCursor.getLongPosition(1), outputCursor.getLongPosition(2)};
 						holesRandomAccess.setPosition(pos);
 						objectsRandomAccess.setPosition(pos);
 						
-						long holeID = holesRandomAccess.get().get();
-						long objectID = objectsRandomAccess.get().get();
+						long holeID = holesRandomAccess.get().getIntegerLong();
+						long objectID = objectsRandomAccess.get().getIntegerLong();
 						
 						
 						long setValue = objectID;	
@@ -332,7 +361,7 @@ public class SparkFillHolesInConnectedComponents {
 							setValue = mapsForFillingHoles.holeIDtoObjectIDMap.get(holeID);
 						}
 						
-						voxel.set(setValue);
+						voxel.setInteger(setValue);
 					}
 
 

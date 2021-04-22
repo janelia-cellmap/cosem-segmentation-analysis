@@ -365,7 +365,6 @@ public class SparkErosionAndDilation {
      * @throws ExecutionException
      */
     public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
-//based on paper https://reader.elsevier.com/reader/sd/pii/S1524070315000284?token=E05DA4F8B7DCB14C483033605A07220AE06753F962D87D3C5186D4A3B6950CCA999324F9849D683CD79735CB78DA39FD
 	final Options options = new Options(args);
 
 	if (!options.parsedSuccessfully)

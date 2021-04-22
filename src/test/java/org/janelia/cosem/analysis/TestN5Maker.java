@@ -197,11 +197,12 @@ public class TestN5Maker {
 	//general information output
 	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
 */
-	
-	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc",null);
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_standard", 0, 1, false, false);
+
+	/*SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc",null);
 	SparkRenumberN5.setupSparkAndRenumberN5(TestHelper.testFileLocations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc");
 	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc_medialSurface","shapes_cc_renumbered");
-
+*/
     }
 }
 

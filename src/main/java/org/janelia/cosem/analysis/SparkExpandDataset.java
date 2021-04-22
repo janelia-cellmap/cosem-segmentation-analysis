@@ -51,6 +51,7 @@ import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.FloatArray;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
@@ -146,19 +147,19 @@ public class SparkExpandDataset {
 	 * @param blockInformationList	List of block information
 	 * @throws IOException
 	 */
-	public static final <T extends IntegerType<T>>void expandDataset(final JavaSparkContext sc, final String n5Path,
+	public static final <T extends IntegerType<T> & NativeType<T>> void expandDataset(final JavaSparkContext sc, final String n5Path,
 			final String inputDatasetName, final String n5OutputPath, final String outputDatasetName, final int thresholdIntensity, final double expansionInNm,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
 		final N5Reader n5Reader = new N5FSReader(n5Path);
-
+		
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 
 		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
 		
-		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT64, new GzipCompression());
+		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, attributes.getDataType(), new GzipCompression());
 		double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 		n5Writer.setAttribute(outputDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
 		n5Writer.setAttribute(outputDatasetName, "offset", IOHelper.getOffset(n5Reader,inputDatasetName));
@@ -224,7 +225,7 @@ public class SparkExpandDataset {
 				}
 			}
 		
-			RandomAccessibleInterval<UnsignedLongType> output = (RandomAccessibleInterval<UnsignedLongType>) Views.offsetInterval(expanded,new long[]{expansionInVoxelsCeil,expansionInVoxelsCeil,expansionInVoxelsCeil}, dimension);
+			RandomAccessibleInterval<T> output = (RandomAccessibleInterval<T>) Views.offsetInterval(expanded,new long[]{expansionInVoxelsCeil,expansionInVoxelsCeil,expansionInVoxelsCeil}, dimension);
 			final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
 			N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 						
