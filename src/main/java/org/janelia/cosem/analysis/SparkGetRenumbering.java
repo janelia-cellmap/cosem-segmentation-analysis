@@ -117,15 +117,15 @@ public class SparkGetRenumbering {
 	JavaRDD<HashMap<Long, HashMap<Long, Long>> > objectIDToRenumberingObjectIDCountsRDD = rdd.map(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
-	    IntervalView<UnsignedLongType> datasetToRenumberView = Views.offsetInterval(
-		    (RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5BlockReader, datasetToRenumber), gridBlock[0],
+	    IntervalView<T> datasetToRenumberView = Views.offsetInterval(
+		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetToRenumber), gridBlock[0],
 		    gridBlock[1]);
 	    
 	    final N5Reader n5BlockReaderToUseForRenumbering = new N5FSReader(pathToUseForRenumbering);
 	    IntervalView<T> datasetNumberingToUseView = Views.offsetInterval(
 		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReaderToUseForRenumbering, datasetNumberingToUse), gridBlock[0],
 		    gridBlock[1]);
-	    Cursor<UnsignedLongType> datasetToRenumberCursor = datasetToRenumberView.cursor();
+	    Cursor<T> datasetToRenumberCursor = datasetToRenumberView.cursor();
 	    Cursor<T> datasetNumberingToUseCursor = datasetNumberingToUseView.cursor();
 
 	    HashMap<Long, HashMap<Long, Long>> objectIDToRenumberingObjectIDCounts = new HashMap<Long,HashMap<Long,Long>>();
@@ -134,7 +134,7 @@ public class SparkGetRenumbering {
 	    while (datasetToRenumberCursor.hasNext()) {
 		datasetToRenumberCursor.next();
 		datasetNumberingToUseCursor.next();
-		long datasetToRenumberObjectID = datasetToRenumberCursor.get().get();
+		long datasetToRenumberObjectID = datasetToRenumberCursor.get().getIntegerLong();
 		long datasetNumberingToUseObjectID = datasetNumberingToUseCursor.get().getIntegerLong();
 
 		if (datasetToRenumberObjectID > 0 && datasetNumberingToUseObjectID>0) {
@@ -213,7 +213,7 @@ public class SparkGetRenumbering {
 
     }
 
-    public static final void getRenumbering(final JavaSparkContext sc, final String inputN5Path,
+    public static final <T extends IntegerType<T>> void getRenumbering(final JavaSparkContext sc, final String inputN5Path,
 	    final String datasetName, final String outputDirectory, final List<BlockInformation> blockInformationList)
 	    throws IOException {
 
@@ -224,17 +224,17 @@ public class SparkGetRenumbering {
 	JavaRDD<Set<Long>> objectIDsRDD = rdd.map(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
-	    IntervalView<UnsignedLongType> source = Views.offsetInterval(
-		    (RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5BlockReader, datasetName), gridBlock[0],
+	    IntervalView<T> source = Views.offsetInterval(
+		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName), gridBlock[0],
 		    gridBlock[1]);
 
 	    Set<Long> objectIDs = new HashSet<Long>();
-	    Cursor<UnsignedLongType> sourceCursor = source.cursor();
+	    Cursor<T> sourceCursor = source.cursor();
 	    while (sourceCursor.hasNext()) {
 		sourceCursor.next();
-		long objectID = sourceCursor.get().get();
+		long objectID = sourceCursor.get().getIntegerLong();
 		if (objectID > 0) {
-		    objectIDs.add(sourceCursor.get().get());
+		    objectIDs.add(sourceCursor.get().getIntegerLong());
 		}
 	    }
 	    return objectIDs;

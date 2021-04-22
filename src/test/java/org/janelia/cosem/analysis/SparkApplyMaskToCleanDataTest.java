@@ -23,7 +23,7 @@ public class SparkApplyMaskToCleanDataTest {
     @Test
     public void testMaskWithinBlock() {
 	long [] dimensions = {10,10,10};
-	Img<UnsignedLongType> halfFull = TestImageMaker.halfFull(dimensions, DataType.UINT64);
+	Img<UnsignedLongType> halfFull = ImageCreationHelper.halfFull(dimensions, DataType.UINT64);
 
 	int [][][] originalVoxelValues = new int [(int) dimensions[0]][(int) dimensions[1]][(int) dimensions[2]];
 
@@ -33,9 +33,9 @@ public class SparkApplyMaskToCleanDataTest {
 		     originalVoxelValues[x][y][z] = 1;
 		
 	
-	Img<UnsignedLongType> originalImage = TestImageMaker.customImage(originalVoxelValues, DataType.UINT64);
+	Img<UnsignedLongType> originalImage = ImageCreationHelper.customImage(originalVoxelValues, DataType.UINT64);
 	SparkApplyMaskToCleanData.maskWithinBlock(halfFull.randomAccess(), originalImage.randomAccess(), dimensions, true);
-	assertTrue(TestImageMaker.compareDatasets(halfFull, originalImage));
+	assertTrue(ImageCreationHelper.compareDatasets(halfFull, originalImage));
 	
     }
 

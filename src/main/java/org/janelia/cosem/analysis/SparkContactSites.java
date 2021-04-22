@@ -64,9 +64,11 @@ import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.FloatArray;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.BoolType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.FloatType;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 /**
@@ -203,14 +205,15 @@ public class SparkContactSites {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final void calculateObjectContactBoundaries(final JavaSparkContext sc, final String inputN5Path,
+    public static final <T extends IntegerType<T> & NativeType<T>> void calculateObjectContactBoundaries(final JavaSparkContext sc, final String inputN5Path,
 	    final String organelle, final String outputN5Path, final double contactDistance,
 	    List<BlockInformation> blockInformationList) throws IOException {
 	// Get attributes of input data set
-
+	
 	String outputN5DatasetName = organelle + "_contact_boundary_temp_to_delete";
-	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path, outputN5DatasetName);
-
+	DataType dataType = ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path, outputN5DatasetName);
+	
+	
 	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(inputN5Path), organelle);
 	// Get contact distance in voxels
 
@@ -232,28 +235,27 @@ public class SparkContactSites {
 	    Arrays.setAll(extendedDimension, i -> extendedDimension[i] + 2 * contactDistanceInVoxelsCeiling);
 
 	    // Read in source block
-	    final RandomAccessibleInterval<UnsignedLongType> segmentedOrganelle = ProcessingHelper
+	    final RandomAccessibleInterval<T> segmentedOrganelle = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRAI(inputN5Path, organelle, extendedOffset, extendedDimension);
 
 	    // Get distance transform
 	    final RandomAccessibleInterval<BoolType> objectsBinarized = Converters.convert(segmentedOrganelle,
-		    (a, b) -> b.set(a.getLong() > 0), new BoolType());
+		    (a, b) -> b.set(a.getIntegerLong() > 0), new BoolType());
 	    ArrayImg<FloatType, FloatArray> distanceFromObjects = ArrayImgs.floats(extendedDimension);
 	    DistanceTransform.binaryTransform(objectsBinarized, distanceFromObjects, DISTANCE_TYPE.EUCLIDIAN);
 
 	    // Output data
-	    final Img<UnsignedLongType> extendedOutput = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
-		    .create(extendedDimension);
+	    IntervalView<T> extendedOutput = ProcessingHelper.getZerosIntegerImageRAI(extendedDimension, dataType);
 
 	    // Access input/output
-	    final RandomAccess<UnsignedLongType> segmentedOrganelleRandomAccess = segmentedOrganelle.randomAccess();
-	    final Cursor<UnsignedLongType> extendedOutputCursor = Views.flatIterable(extendedOutput).cursor();
+	    final RandomAccess<T> segmentedOrganelleRandomAccess = segmentedOrganelle.randomAccess();
+	    final Cursor<T> extendedOutputCursor = extendedOutput.cursor();
 	    final Cursor<FloatType> distanceFromObjectsCursor = distanceFromObjects.cursor();
 
 	    // Loop over image and label voxel within halo according to object ID. Note:
 	    // This will mean that each voxel only gets one object assignment
 	    while (extendedOutputCursor.hasNext()) {
-		final UnsignedLongType voxelOutput = extendedOutputCursor.next();
+		final T voxelOutput = extendedOutputCursor.next();
 		final float distanceFromObjectsSquared = distanceFromObjectsCursor.next().get();
 		long[] position = { extendedOutputCursor.getLongPosition(0), extendedOutputCursor.getLongPosition(1),
 			extendedOutputCursor.getLongPosition(2) };
@@ -264,7 +266,7 @@ public class SparkContactSites {
 		}
 	    }
 
-	    RandomAccessibleInterval<UnsignedLongType> output = Views.offsetInterval(extendedOutput, new long[] {
+	    RandomAccessibleInterval<T> output = Views.offsetInterval(extendedOutput, new long[] {
 		    contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling },
 		    dimension);
 	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
@@ -291,7 +293,7 @@ public class SparkContactSites {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final <T extends NativeType<T>> void calculateObjectContactBoundariesWithSelfContacts(
+    public static final <T extends IntegerType<T> & NativeType<T>> void calculateObjectContactBoundariesWithSelfContacts(
 	    final JavaSparkContext sc, final String inputN5Path, final String organelle, final String outputN5Path,
 	    final double contactDistance, List<BlockInformation> blockInformationList) throws IOException {
 
@@ -302,7 +304,7 @@ public class SparkContactSites {
 	// Get pixel resolution
 	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(inputN5Path), organelle);
 
-	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path,
+	DataType dataType = ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path,
 		organelleContactBoundaryName);
 	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path,
 		organelleContactBoundaryPairsName);
@@ -324,33 +326,32 @@ public class SparkContactSites {
 	    Arrays.setAll(extendedDimension, i -> extendedDimension[i] + 2 * contactDistanceInVoxelsCeiling);
 
 	    // Read in source block
-	    final RandomAccessibleInterval<UnsignedLongType> segmentedOrganelle = ProcessingHelper
+	    final RandomAccessibleInterval<T> segmentedOrganelle = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRAI(inputN5Path, organelle, extendedOffset, extendedDimension);
 
 	    // Get distance transform
 	    final RandomAccessibleInterval<BoolType> objectsBinarized = Converters.convert(segmentedOrganelle,
-		    (a, b) -> b.set(a.getLong() > 0), new BoolType());
+		    (a, b) -> b.set(a.getIntegerLong() > 0), new BoolType());
 	    ArrayImg<FloatType, FloatArray> distanceFromObjects = ArrayImgs.floats(extendedDimension);
 	    DistanceTransform.binaryTransform(objectsBinarized, distanceFromObjects, DISTANCE_TYPE.EUCLIDIAN);
 
 	    // Access input/output
-	    final RandomAccess<UnsignedLongType> segmentedOrganelleRandomAccess = segmentedOrganelle.randomAccess();
-	    final Img<UnsignedLongType> extendedOutput = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
-		    .create(extendedDimension);
-	    final Img<UnsignedLongType> extendedOutputPair = new ArrayImgFactory<UnsignedLongType>(
-		    new UnsignedLongType()).create(extendedDimension); // if a voxel is within contactDistance of two
+	    final RandomAccess<T> segmentedOrganelleRandomAccess = segmentedOrganelle.randomAccess();
+	    IntervalView<T> extendedOutput = ProcessingHelper.getZerosIntegerImageRAI(extendedDimension, dataType);
+
+	    final IntervalView<T> extendedOutputPair = ProcessingHelper.getZerosIntegerImageRAI(extendedDimension, dataType); // if a voxel is within contactDistance of two
 								       // organelles of the same type, that is a contact
 								       // site
 
-	    final Cursor<UnsignedLongType> extendedOutputCursor = Views.flatIterable(extendedOutput).cursor();
-	    final Cursor<UnsignedLongType> extendedOutputPairCursor = Views.flatIterable(extendedOutputPair).cursor();
+	    final Cursor<T> extendedOutputCursor = extendedOutput.cursor();
+	    final Cursor<T> extendedOutputPairCursor = extendedOutputPair.cursor();
 	    final Cursor<FloatType> distanceFromObjectsCursor = distanceFromObjects.cursor();
 
 	    // Loop over image and label voxel within halo according to object ID. Note:
 	    // This will mean that each voxel only gets one object assignment
 	    while (extendedOutputCursor.hasNext()) {
-		final UnsignedLongType voxelOutput = extendedOutputCursor.next();
-		final UnsignedLongType voxelOutputPair = extendedOutputPairCursor.next();
+		final T voxelOutput = extendedOutputCursor.next();
+		final T voxelOutputPair = extendedOutputPairCursor.next();
 		final float distanceFromObjectsSquared = distanceFromObjectsCursor.next().get();
 		long[] position = { extendedOutputCursor.getLongPosition(0), extendedOutputCursor.getLongPosition(1),
 			extendedOutputCursor.getLongPosition(2) };
@@ -366,10 +367,10 @@ public class SparkContactSites {
 	    }
 
 	    // Crop and write out data
-	    RandomAccessibleInterval<UnsignedLongType> output = Views.offsetInterval(extendedOutput, new long[] {
+	    RandomAccessibleInterval<T> output = Views.offsetInterval(extendedOutput, new long[] {
 		    contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling },
 		    dimension);
-	    RandomAccessibleInterval<UnsignedLongType> outputPair = Views.offsetInterval(extendedOutputPair,
+	    RandomAccessibleInterval<T> outputPair = Views.offsetInterval(extendedOutputPair,
 		    new long[] { contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling,
 			    contactDistanceInVoxelsCeiling },
 		    dimension);
@@ -391,8 +392,8 @@ public class SparkContactSites {
      * @param segmentedOrganelleRandomAccess Random access for the segmented dataset
      * @return ID of nearest object
      */
-    private static long findAndSetValueToNearestOrganelleID(UnsignedLongType voxelOutput, float distanceSquared,
-	    long[] position, RandomAccess<UnsignedLongType> segmentedOrganelleRandomAccess) {
+    private static <T extends IntegerType<T> & NativeType<T>> long findAndSetValueToNearestOrganelleID(T voxelOutput, float distanceSquared,
+	    long[] position, RandomAccess<T> segmentedOrganelleRandomAccess) {
 	Set<List<Integer>> voxelsToCheck = getVoxelsToCheckBasedOnDistance(distanceSquared);
 	for (List<Integer> voxelToCheck : voxelsToCheck) {
 	    int dx = voxelToCheck.get(0);
@@ -400,9 +401,9 @@ public class SparkContactSites {
 	    int dz = voxelToCheck.get(2);
 	    segmentedOrganelleRandomAccess
 		    .setPosition(new long[] { position[0] + dx, position[1] + dy, position[2] + dz });
-	    long currentObjectID = segmentedOrganelleRandomAccess.get().get();
+	    long currentObjectID = segmentedOrganelleRandomAccess.get().getIntegerLong();
 	    if (currentObjectID > 0) {
-		voxelOutput.set(currentObjectID);
+		voxelOutput.setInteger(currentObjectID);
 		return currentObjectID;
 	    }
 	}
@@ -421,9 +422,9 @@ public class SparkContactSites {
      * @param position                       Position
      * @param segmentedOrganelleRandomAccess Random access for segmented dataset
      */
-    private static void findAndSetValueToOrganellePairID(long objectID, float distanceFromObjectSquared,
-	    UnsignedLongType voxelOutputPair, double contactDistanceInVoxelsSquared, long[] position,
-	    RandomAccess<UnsignedLongType> segmentedOrganelleRandomAccess) {
+    private static <T extends IntegerType<T> & NativeType<T>> void findAndSetValueToOrganellePairID(long objectID, float distanceFromObjectSquared,
+	    T voxelOutputPair, double contactDistanceInVoxelsSquared, long[] position,
+	    RandomAccess<T> segmentedOrganelleRandomAccess) {
 	// For a given voxel outside an object, find the closest object to it and
 	// relabel the voxel with the corresponding object ID
 	int distanceFromObject = (int) Math.floor(Math.sqrt(distanceFromObjectSquared));
@@ -446,7 +447,7 @@ public class SparkContactSites {
 				&& currentDistanceSquared <= contactDistanceInVoxelsSquared) {
 			    segmentedOrganelleRandomAccess
 				    .setPosition(new long[] { position[0] + x, position[1] + y, position[2] + z });
-			    long currentObjectID = segmentedOrganelleRandomAccess.get().get();
+			    long currentObjectID = segmentedOrganelleRandomAccess.get().getIntegerLong();
 			    if (currentObjectID > 0 && currentObjectID != objectID) { // then is within contact distance
 										      // of another organelle
 				if (currentDistanceSquared < distanceFromOrganellePairSquared) { // ensure it is closest
@@ -460,7 +461,7 @@ public class SparkContactSites {
 		}
 	    }
 	    if (organellePairID > 0) {
-		voxelOutputPair.set(organellePairID);
+		voxelOutputPair.setInteger(organellePairID);
 		return;
 	    }
 	}
@@ -487,7 +488,7 @@ public class SparkContactSites {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final List<BlockInformation> blockwiseConnectedComponentsLM(final JavaSparkContext sc,
+    public static final <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> blockwiseConnectedComponentsLM(final JavaSparkContext sc,
 	    final String inputN5Path, String organelle1, String organelle2, final String outputN5Path,
 	    final String outputN5DatasetName, final double minimumVolumeCutoff,
 	    List<BlockInformation> blockInformationList) throws IOException {
@@ -513,7 +514,7 @@ public class SparkContactSites {
 	final double[] pixelResolution = IOHelper.getResolution(n5Reader, organelle1);
 
 	// Create output dataset
-	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle1, outputN5Path, outputN5DatasetName);
+	DataType dataType = ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle1, outputN5Path, outputN5DatasetName);
 
 	// Set up rdd to parallelize over blockInformation list and run RDD, which will
 	// return updated block information containing list of components on the edge of
@@ -528,15 +529,15 @@ public class SparkContactSites {
 	    // Read in source block
 	    final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
 
-	    final RandomAccessibleInterval<UnsignedLongType> organelle1Data = Views
-		    .offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils
+	    final RandomAccessibleInterval<T> organelle1Data = Views
+		    .offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils
 			    .open(n5ReaderLocal, organelle1ContactBoundaryString)), offset, dimension);
-	    final RandomAccessibleInterval<UnsignedLongType> organelle2Data = Views
-		    .offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>) N5Utils
+	    final RandomAccessibleInterval<T> organelle2Data = Views
+		    .offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils
 			    .open(n5ReaderLocal, organelle2ContactBoundaryString)), offset, dimension);
 
-	    RandomAccess<UnsignedLongType> organelle1DataRA = organelle1Data.randomAccess();
-	    RandomAccess<UnsignedLongType> organelle2DataRA = organelle2Data.randomAccess();
+	    RandomAccess<T> organelle1DataRA = organelle1Data.randomAccess();
+	    RandomAccess<T> organelle2DataRA = organelle2Data.randomAccess();
 
 	    Set<List<Long>> contactSiteOrganellePairsSet = new HashSet<>();
 	    for (int x = 0; x < dimension[0]; x++) {
@@ -546,8 +547,8 @@ public class SparkContactSites {
 			organelle1DataRA.setPosition(pos);
 			organelle2DataRA.setPosition(pos);
 
-			Long organelle1ID = organelle1DataRA.get().get();
-			Long organelle2ID = organelle2DataRA.get().get();
+			Long organelle1ID = organelle1DataRA.get().getIntegerLong();
+			Long organelle2ID = organelle2DataRA.get().getIntegerLong();
 
 			if (organelle1ID > 0 && organelle2ID > 0) { // then is part of a contact site
 			    contactSiteOrganellePairsSet.add(Arrays.asList(organelle1ID, organelle2ID));
@@ -560,11 +561,9 @@ public class SparkContactSites {
 	    organelle1Data.dimensions(currentDimensions);
 
 	    // Create the output based on the current dimensions
-	    final Img<UnsignedLongType> output = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
-		    .create(currentDimensions);
+	    final IntervalView<UnsignedLongType> output = ProcessingHelper.getZerosIntegerImageRAI(currentDimensions, DataType.UINT64);
 
-	    final Img<UnsignedByteType> currentPairBinarized = new ArrayImgFactory<UnsignedByteType>(
-		    new UnsignedByteType()).create(currentDimensions);
+	    final IntervalView<UnsignedByteType> currentPairBinarized = ProcessingHelper.getZerosIntegerImageRAI(outputDimensions, DataType.UINT8);   
 	    RandomAccess<UnsignedByteType> currentPairBinarizedRA = currentPairBinarized.randomAccess();
 	    currentBlockInformation.edgeComponentIDtoVolumeMap = new HashMap<Long, Long>();
 	    currentBlockInformation.edgeComponentIDtoOrganelleIDs = new HashMap<Long, List<Long>>();
@@ -576,8 +575,8 @@ public class SparkContactSites {
 			    organelle1DataRA.setPosition(pos);
 			    organelle2DataRA.setPosition(pos);
 			    currentPairBinarizedRA.setPosition(pos);
-			    Long organelle1ID = organelle1DataRA.get().get();
-			    Long organelle2ID = organelle2DataRA.get().get();
+			    Long organelle1ID = organelle1DataRA.get().getIntegerLong();
+			    Long organelle2ID = organelle2DataRA.get().getIntegerLong();
 			    if (organelle1ID.equals(organellePairs.get(0))
 				    && organelle2ID.equals(organellePairs.get(1))) {
 				currentPairBinarizedRA.get().set(1);
@@ -648,7 +647,7 @@ public class SparkContactSites {
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final <T extends NativeType<T>> List<BlockInformation> blockwiseConnectedComponentsEM(
+    public static final <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> blockwiseConnectedComponentsEM(
 	    final JavaSparkContext sc, final String inputN5Path, String organelle1, String organelle2,
 	    final String outputN5Path, final String outputN5DatasetName, final double minimumVolumeCutoff,
 	    double contactDistance, List<BlockInformation> blockInformationList) throws IOException {
@@ -674,8 +673,8 @@ public class SparkContactSites {
 	final long[] outputDimensions = attributes.getDimensions();
 	final double[] pixelResolution = IOHelper.getResolution(n5Reader, organelle1);
 
-	// Create output dataset
-	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle1, outputN5Path, outputN5DatasetName);
+	// Create output dataset, needed in UINT64 for blockwise
+	ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle1, outputN5Path, outputN5DatasetName, DataType.UINT64);
 
 	// Set up rdd to parallelize over blockInformation list and run RDD, which will
 	// return updated block information containing list of components on the edge of
@@ -705,16 +704,16 @@ public class SparkContactSites {
 
 	    // Read in source block
 
-	    RandomAccess<UnsignedLongType> organelle1DataRA = ProcessingHelper
+	    RandomAccess<T> organelle1DataRA = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRA(inputN5Path, organelle1, paddedOffset, paddedDimension);
-	    RandomAccess<UnsignedLongType> organelle2DataRA = ProcessingHelper
+	    RandomAccess<T> organelle2DataRA = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRA(inputN5Path, organelle2, paddedOffset, paddedDimension);
 	    ContactSiteInformation csi = null;
 	    { // Necessary? scoping to save memory
-		RandomAccess<UnsignedLongType> organelle1ContactBoundaryDataRA = ProcessingHelper
+		RandomAccess<T> organelle1ContactBoundaryDataRA = ProcessingHelper
 			.getOffsetIntervalExtendZeroRA(outputN5Path, organelle1ContactBoundaryName, paddedOffset,
 				paddedDimension);
-		RandomAccess<UnsignedLongType> organelle2ContactBoundaryDataRA = ProcessingHelper
+		RandomAccess<T> organelle2ContactBoundaryDataRA = ProcessingHelper
 			.getOffsetIntervalExtendZeroRA(outputN5Path, organelle2ContactBoundaryName, paddedOffset,
 				paddedDimension);
 
@@ -723,8 +722,7 @@ public class SparkContactSites {
 	    }
 
 	    // Create the output based on the current dimensions
-	    final Img<UnsignedLongType> output = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
-		    .create(dimension);
+	    final IntervalView<UnsignedLongType> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, DataType.UINT64);
 
 	    currentBlockInformation.edgeComponentIDtoVolumeMap = new HashMap<Long, Long>();
 	    currentBlockInformation.edgeComponentIDtoOrganelleIDs = new HashMap<Long, List<Long>>();
@@ -762,7 +760,7 @@ public class SparkContactSites {
     }
 
     @SuppressWarnings("unchecked")
-    public static final <T extends NativeType<T>> List<BlockInformation> naiveConnectedComponents(
+    public static final <T extends IntegerType<T> & NativeType<T>> List<BlockInformation> naiveConnectedComponents(
 	    final JavaSparkContext sc, final String inputN5Path, String organelle1, String organelle2,
 	    final String outputN5Path, final String outputN5DatasetName, final double minimumVolumeCutoff,
 	    List<BlockInformation> blockInformationList) throws IOException {
@@ -802,11 +800,11 @@ public class SparkContactSites {
 
 	    // Read in source block
 
-	    final RandomAccessibleInterval<UnsignedLongType> organelle1Data = ProcessingHelper
+	    final RandomAccessibleInterval<T> organelle1Data = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRAI(inputN5Path, organelle1ContactBoundaryString, offset, dimension);
-	    RandomAccess<UnsignedLongType> organelle1DataRA = organelle1Data.randomAccess();
+	    RandomAccess<T> organelle1DataRA = organelle1Data.randomAccess();
 
-	    final RandomAccess<UnsignedLongType> organelle2DataRA = ProcessingHelper
+	    final RandomAccess<T> organelle2DataRA = ProcessingHelper
 		    .getOffsetIntervalExtendZeroRA(inputN5Path, organelle2ContactBoundaryString, offset, dimension);
 
 	    Set<List<Long>> contactSiteOrganellePairsSet = new HashSet<>();
@@ -817,8 +815,8 @@ public class SparkContactSites {
 			organelle1DataRA.setPosition(pos);
 			organelle2DataRA.setPosition(pos);
 
-			Long organelle1ID = organelle1DataRA.get().get();
-			Long organelle2ID = organelle2DataRA.get().get();
+			Long organelle1ID = organelle1DataRA.get().getIntegerLong();
+			Long organelle2ID = organelle2DataRA.get().getIntegerLong();
 
 			if (organelle1ID > 0 && organelle2ID > 0) { // then is part of a contact site
 			    contactSiteOrganellePairsSet.add(Arrays.asList(organelle1ID, organelle2ID));
@@ -831,8 +829,7 @@ public class SparkContactSites {
 	    organelle1Data.dimensions(currentDimensions);
 	    // Create the output based on the current dimensions
 
-	    final Img<UnsignedLongType> output = new ArrayImgFactory<UnsignedLongType>(new UnsignedLongType())
-		    .create(currentDimensions);
+	    final IntervalView<UnsignedLongType> output = ProcessingHelper.getZerosIntegerImageRAI(outputDimensions, DataType.UINT64);
 
 	    final Img<UnsignedByteType> currentPairBinarized = new ArrayImgFactory<UnsignedByteType>(
 		    new UnsignedByteType()).create(currentDimensions);
@@ -847,8 +844,8 @@ public class SparkContactSites {
 			    organelle1DataRA.setPosition(pos);
 			    organelle2DataRA.setPosition(pos);
 			    currentPairBinarizedRA.setPosition(pos);
-			    Long organelle1ID = organelle1DataRA.get().get();
-			    Long organelle2ID = organelle2DataRA.get().get();
+			    Long organelle1ID = organelle1DataRA.get().getIntegerLong();
+			    Long organelle2ID = organelle2DataRA.get().getIntegerLong();
 			    if (organelle1ID.equals(organellePairs.get(0))
 				    && organelle2ID.equals(organellePairs.get(1))) {
 				currentPairBinarizedRA.get().set(1);
@@ -962,9 +959,9 @@ public class SparkContactSites {
      * @param paddedDimension                Padded dimension
      * @return Set of contact site voxel coordinates
      */
-    public static Map<List<Long>, List<Long>> getContactSiteVoxelsForOrganellePair(ContactSiteInformation csi,
-	    List<Long> currentOrganellePair, RandomAccess<UnsignedLongType> organelle1DataRA,
-	    RandomAccess<UnsignedLongType> organelle2DataRA, double expandedContactDistanceSquared, long padding,
+    public static <T extends IntegerType<T> & NativeType <T>> Map<List<Long>, List<Long>> getContactSiteVoxelsForOrganellePair(ContactSiteInformation csi,
+	    List<Long> currentOrganellePair, RandomAccess<T> organelle1DataRA,
+	    RandomAccess<T> organelle2DataRA, double expandedContactDistanceSquared, long padding,
 	    long[] dimension, long[] paddedDimension) {
 	Map<List<Long>, List<Long>> allContactSiteVoxels = new HashMap<List<Long>, List<Long>>();
 
@@ -1015,7 +1012,7 @@ public class SparkContactSites {
      * @param outputDimensions            Full dataset dimensions
      * @param currentBlockInformation     The current block information
      */
-    public static void doConnectedComponentsForOrganellePairContactSites(long organelle1ID, long organelle2ID,
+    public static <T extends IntegerType<T>>void doConnectedComponentsForOrganellePairContactSites(long organelle1ID, long organelle2ID,
 	    boolean sameOrganelleClass, Set<List<Long>> allContactSiteVoxels, Img<UnsignedLongType> output,
 	    int minimumVolumeCutoffInVoxels, long[] blockSizeL, long[] offset, long[] dimension,
 	    long outputDimensions[], BlockInformation currentBlockInformation) {
@@ -1050,7 +1047,7 @@ public class SparkContactSites {
     }
 
     public static void doConnectedComponents(Map<List<Long>, List<Long>> currentIndependentContactSiteVoxelInformation,
-	    boolean sameOrganelleClass, Img<UnsignedLongType> output, int minimumVolumeCutoffInVoxels,
+	    boolean sameOrganelleClass, IntervalView<UnsignedLongType> output, int minimumVolumeCutoffInVoxels,
 	    long[] blockSizeL, long[] offset, long[] dimension, long outputDimensions[],
 	    BlockInformation currentBlockInformation) {
 	Img<UnsignedByteType> currentPairBinarized = new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType())
@@ -1102,10 +1099,10 @@ public class SparkContactSites {
      * @param sameOrganelleClass              True if same organelle class
      * @return Instance of {@link ContactSiteInformation}
      */
-    public static ContactSiteInformation getContactSiteInformation(long[] paddedDimension,
-	    RandomAccess<UnsignedLongType> organelle1DataRA, RandomAccess<UnsignedLongType> organelle2DataRA,
-	    RandomAccess<UnsignedLongType> organelle1ContactBoundaryDataRA,
-	    RandomAccess<UnsignedLongType> organelle2ContactBoundaryDataRA, boolean sameOrganelleClass) {
+    public static <T extends IntegerType<T> & NativeType<T>>ContactSiteInformation getContactSiteInformation(long[] paddedDimension,
+	    RandomAccess<T> organelle1DataRA, RandomAccess<T> organelle2DataRA,
+	    RandomAccess<T> organelle1ContactBoundaryDataRA,
+	    RandomAccess<T> organelle2ContactBoundaryDataRA, boolean sameOrganelleClass) {
 	Map<List<Long>, List<long[]>> organelle1SurfaceVoxelsWithinOrganelle2ContactDistance = new HashMap<List<Long>, List<long[]>>();
 	Map<List<Long>, List<long[]>> organelle2SurfaceVoxelsWithinOrganelle1ContactDistance = new HashMap<List<Long>, List<long[]>>();
 	Set<List<Long>> allOrganellePairs = new HashSet<List<Long>>();
@@ -1120,7 +1117,7 @@ public class SparkContactSites {
 		    organelle2ContactBoundaryDataRA.setPosition(pos);
 
 		    long organelle1ID = 0, organelle2ID = 0;
-		    if (organelle2ContactBoundaryDataRA.get().get() > 0 && isSurfaceVoxel(organelle1DataRA, pos)) {// if
+		    if (organelle2ContactBoundaryDataRA.get().getIntegerLong() > 0 && isSurfaceVoxel(organelle1DataRA, pos)) {// if
 														   // it
 														   // is
 														   // withincutoff
@@ -1128,17 +1125,17 @@ public class SparkContactSites {
 														   // other
 														   // class
 			surfaceVoxel = true;
-			organelle1ID = organelle1DataRA.get().get();
-			organelle2ID = organelle2ContactBoundaryDataRA.get().get();
+			organelle1ID = organelle1DataRA.get().getIntegerLong();
+			organelle2ID = organelle2ContactBoundaryDataRA.get().getIntegerLong();
 			List<long[]> surfaceVoxels = organelle1SurfaceVoxelsWithinOrganelle2ContactDistance
 				.getOrDefault(Arrays.asList(organelle1ID, organelle2ID), new ArrayList<long[]>());
 			surfaceVoxels.add(pos);
 			organelle1SurfaceVoxelsWithinOrganelle2ContactDistance
 				.put(Arrays.asList(organelle1ID, organelle2ID), surfaceVoxels);
 		    }
-		    if (organelle1ContactBoundaryDataRA.get().get() > 0 && isSurfaceVoxel(organelle2DataRA, pos)) {
-			organelle1ID = organelle1ContactBoundaryDataRA.get().get();
-			organelle2ID = organelle2DataRA.get().get();
+		    if (organelle1ContactBoundaryDataRA.get().getIntegerLong() > 0 && isSurfaceVoxel(organelle2DataRA, pos)) {
+			organelle1ID = organelle1ContactBoundaryDataRA.get().getIntegerLong();
+			organelle2ID = organelle2DataRA.get().getIntegerLong();
 			surfaceVoxel = true;
 			List<long[]> surfaceVoxels = organelle2SurfaceVoxelsWithinOrganelle1ContactDistance
 				.getOrDefault(Arrays.asList(organelle1ID, organelle2ID), new ArrayList<long[]>());
@@ -1552,18 +1549,18 @@ public class SparkContactSites {
      * @param voxelsToCheck Path of voxels to check
      * @return True if passes through object
      */
-    public static boolean voxelPathEntersObject(RandomAccess<UnsignedLongType> organelle1RA,
-	    RandomAccess<UnsignedLongType> organelle2RA, List<long[]> voxelsToCheck) {
+    public static <T extends IntegerType<T> & NativeType<T>> boolean voxelPathEntersObject(RandomAccess<T> organelle1RA,
+	    RandomAccess<T> organelle2RA, List<long[]> voxelsToCheck) {
 
 	for (int i = 1; i < voxelsToCheck.size() - 1; i++) {// don't check start and end since those are defined already
 							    // to be surface voxels.
 	    long[] currentVoxel = voxelsToCheck.get(i);
 	    organelle1RA.setPosition(currentVoxel);
-	    if (organelle1RA.get().get() > 0)
+	    if (organelle1RA.get().getIntegerLong() > 0)
 		return true;
 	    else {
 		organelle2RA.setPosition(currentVoxel);
-		if (organelle2RA.get().get() > 0)
+		if (organelle2RA.get().getIntegerLong() > 0)
 		    return true;
 	    }
 	}
@@ -1646,9 +1643,9 @@ public class SparkContactSites {
      * @param position           Voxel postion
      * @return True if it is a surface voxel
      */
-    public static boolean isSurfaceVoxel(final RandomAccess<UnsignedLongType> sourceRandomAccess, long[] position) {
+    public static <T extends IntegerType<T> & NativeType<T>> boolean isSurfaceVoxel(final RandomAccess<T> sourceRandomAccess, long[] position) {
 	sourceRandomAccess.setPosition(position);
-	long referenceVoxelValue = sourceRandomAccess.get().get();
+	long referenceVoxelValue = sourceRandomAccess.get().getIntegerLong();
 	if (referenceVoxelValue == 0) {// needs to be inside organelle
 	    return false;
 	} else {
@@ -1658,7 +1655,7 @@ public class SparkContactSites {
 			if (!(dx == 0 && dy == 0 && dz == 0)) {
 			    final long testPosition[] = { position[0] + dx, position[1] + dy, position[2] + dz };
 			    sourceRandomAccess.setPosition(testPosition);
-			    if (sourceRandomAccess.get().get() != referenceVoxelValue) {
+			    if (sourceRandomAccess.get().getIntegerLong() != referenceVoxelValue) {
 				sourceRandomAccess.setPosition(position);
 				return true;
 			    }
@@ -1672,12 +1669,12 @@ public class SparkContactSites {
 
     }
 
-    public static boolean isSurfaceVoxel(final RandomAccess<UnsignedLongType> raObject,
-	    final RandomAccess<UnsignedLongType> raSurface, long[] position) {
+    public static <T extends IntegerType<T>> boolean isSurfaceVoxel(final RandomAccess<T> raObject,
+	    final RandomAccess<T> raSurface, long[] position) {
 	raObject.setPosition(position);
-	if (raObject.get().get() > 0) {// needs to be inside organelle
+	if (raObject.get().getIntegerLong() > 0) {// needs to be inside organelle
 	    raSurface.setPosition(position);
-	    if (raSurface.get().get() > 0) {
+	    if (raSurface.get().getIntegerLong() > 0) {
 		return true;
 	    }
 	}

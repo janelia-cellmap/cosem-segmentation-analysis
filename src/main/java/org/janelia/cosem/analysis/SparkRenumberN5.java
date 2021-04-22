@@ -154,7 +154,7 @@ public class SparkRenumberN5 {
 	    long[] offset = gridBlock[0];
 	    long[] dimension = gridBlock[1];
 
-	    Cursor<UnsignedLongType> sourceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path, datasetName,
+	    Cursor<T> sourceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path, datasetName,
 		    offset, dimension);
 	    RandomAccessibleInterval<T> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, dataType);
 	    RandomAccess<T> outputRA = output.randomAccess();
@@ -163,7 +163,7 @@ public class SparkRenumberN5 {
 	    long[] pos;
 	    while (sourceCursor.hasNext()) {
 		sourceCursor.next();
-		long objectID = sourceCursor.get().get();
+		long objectID = sourceCursor.get().getIntegerLong();
 		if (objectID > 0) {
 		    Long renumberedID = renumberingMap.get(objectID);
 		    pos = new long[] { sourceCursor.getLongPosition(0), sourceCursor.getLongPosition(1),

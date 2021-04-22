@@ -45,6 +45,7 @@ import org.kohsuke.args4j.Option;
 
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.Views;
@@ -219,9 +220,9 @@ public class SparkCalculateSheetnessOfContactSites {
 	 * @param voxelFaceArea             Surface area of voxel face
 	 * @return Map containing the histogram data
 	 */
-	public static SheetnessMaps buildSheetnessMaps(long[] paddedOffset, long[] paddedDimension, long[] dimensions,
-			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA, RandomAccess<UnsignedLongType> contactSitesRA,
-			RandomAccess<UnsignedLongType> referenceOrganelleCBRA, double voxelFaceArea) {
+	public static <T extends IntegerType<T>> SheetnessMaps buildSheetnessMaps(long[] paddedOffset, long[] paddedDimension, long[] dimensions,
+			RandomAccess<UnsignedByteType> volumeAveragedSheetnessRA, RandomAccess<T> contactSitesRA,
+			RandomAccess<T> referenceOrganelleCBRA, double voxelFaceArea) {
 		Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
 		Map<Long, List<Integer>> organelleSheetnessMap = new HashMap<Long, List<Integer>>();
 		Map<Long, List<Integer>> contactSiteSheetnessMap = new HashMap<Long, List<Integer>>();
@@ -233,7 +234,7 @@ public class SparkCalculateSheetnessOfContactSites {
 					volumeAveragedSheetnessRA.setPosition(pos);
 					contactSitesRA.setPosition(pos);
 					int sheetnessMeasureBin = volumeAveragedSheetnessRA.get().get();
-					long contactSiteID = contactSitesRA.get().get();
+					long contactSiteID = contactSitesRA.get().getIntegerLong();
 
 					if (sheetnessMeasureBin > 0 && contactSiteID > 0) {// Then is on surface and contact site
 						int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(volumeAveragedSheetnessRA,
@@ -245,7 +246,7 @@ public class SparkCalculateSheetnessOfContactSites {
 						}
 
 						referenceOrganelleCBRA.setPosition(pos);
-						long organelleID = referenceOrganelleCBRA.get().get();
+						long organelleID = referenceOrganelleCBRA.get().getIntegerLong();
 
 						List<Integer> sumAndCount = organelleSheetnessMap.getOrDefault(organelleID,
 								Arrays.asList(0, 0));

@@ -112,11 +112,11 @@ public class ProcessingHelper {
 		return pos;
 	}
 	
-	public static void createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName) throws IOException {
-		createDatasetUsingTemplateDataset(templateN5Path, templateDatasetName, newN5Path, newDatasetName, null);
+	public static DataType createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName) throws IOException {
+		return createDatasetUsingTemplateDataset(templateN5Path, templateDatasetName, newN5Path, newDatasetName, null);
 	}
 
-	public static void createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName, DataType dataType) throws IOException {
+	public static DataType createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName, DataType dataType) throws IOException {
 		final N5Reader n5Reader = new N5FSReader(templateN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(templateDatasetName);
 		final long[] dimensions = attributes.getDimensions();
@@ -128,6 +128,7 @@ public class ProcessingHelper {
 		double[] pixelResolution = IOHelper.getResolution(n5Reader, templateDatasetName);
 		n5Writer.setAttribute(newDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
 		n5Writer.setAttribute(newDatasetName, "offset", IOHelper.getOffset(n5Reader, templateDatasetName));
+		return attributes.getDataType();
 	}
 	
 	public static <T extends NumericType<T>> IntervalView< T > getOffsetIntervalExtendZeroRAI(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {

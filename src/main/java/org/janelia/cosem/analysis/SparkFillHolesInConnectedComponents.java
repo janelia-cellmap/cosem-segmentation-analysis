@@ -83,6 +83,9 @@ public class SparkFillHolesInConnectedComponents {
 
 		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
 		private String inputN5Path = null;
+		
+		@Option(name = "--outputN5Path", required = false, usage = "output N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		private String outputN5Path = null;
 
 		@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. /mito")
 		private String inputN5DatasetName = null;
@@ -104,6 +107,9 @@ public class SparkFillHolesInConnectedComponents {
 			final CmdLineParser parser = new CmdLineParser(this);
 			try {
 				parser.parseArgument(args);
+				if (outputN5Path == null)
+				    outputN5Path = inputN5Path;
+				
 				parsedSuccessfully = true;
 			} catch (final CmdLineException e) {
 				System.err.println(e.getMessage());
@@ -113,6 +119,10 @@ public class SparkFillHolesInConnectedComponents {
 
 		public String getInputN5Path() {
 			return inputN5Path;
+		}
+		
+		public String getOutputN5Path() {
+			return outputN5Path;
 		}
 
 		public String getInputN5DatasetName() {
@@ -225,7 +235,7 @@ public class SparkFillHolesInConnectedComponents {
 	 */
 	@SuppressWarnings("unchecked")
 	public static final <T extends IntegerType<T> & NativeType<T>> MapsForFillingHoles getMapsForFillingHoles(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName,
 			List<BlockInformation> blockInformationList) throws IOException {
 	   	final N5Reader n5Reader = new N5FSReader(inputN5Path);
 		final DataType dataType = n5Reader.getDatasetAttributes(inputN5DatasetName).getDataType();
@@ -243,14 +253,15 @@ public class SparkFillHolesInConnectedComponents {
 			long[] paddedDimension = new long[] {dimension[0]+2, dimension[1]+2, dimension[2]+2};
 			
 			// Read in source block
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5InputReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5OutputReaderLocal = new N5FSReader(outputN5Path);
+
 			long[] fullDimensions = new long [] {0,0,0};
-			((RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)).dimensions(fullDimensions);
 			long maxValue = fullDimensions[0]*fullDimensions[1]*fullDimensions[2]*10;//no object should have a value larger than this
 			//TODO: fix edge case here?
 			new UnsignedByteType();
-			final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendValue((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName), getMaxValue(dataType)),paddedOffset, paddedDimension); 
-			final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),paddedOffset, paddedDimension);
+			final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendValue((RandomAccessibleInterval<T>) N5Utils.open(n5InputReaderLocal, inputN5DatasetName), getMaxValue(dataType)),paddedOffset, paddedDimension); 
+			final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5OutputReaderLocal, inputN5DatasetName+"_holes")),paddedOffset, paddedDimension);
 			
 			final RandomAccessibleInterval<BoolType> objectsBinarized = Converters.convert(objects,
 					(a, b) -> b.set(a.getRealDouble() > 0), new BoolType());
@@ -311,7 +322,7 @@ public class SparkFillHolesInConnectedComponents {
 	}
 	
 	public static final <T extends IntegerType<T> & NativeType<T>> void fillHoles(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, MapsForFillingHoles mapsForFillingHoles,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path,final String inputN5DatasetName, final String outputN5DatasetName, MapsForFillingHoles mapsForFillingHoles,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
 				final N5Reader n5Reader = new N5FSReader(inputN5Path);
@@ -319,7 +330,7 @@ public class SparkFillHolesInConnectedComponents {
 				final int[] blockSize = attributes.getBlockSize();
 
 				// Create output dataset
-				final N5Writer n5Writer = new N5FSWriter(inputN5Path);
+				final N5Writer n5Writer = new N5FSWriter(outputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
 				n5Writer.createDataset(outputN5DatasetName, attributes.getDimensions(), blockSize,
 						attributes.getDataType(), attributes.getCompression());
@@ -337,9 +348,11 @@ public class SparkFillHolesInConnectedComponents {
 					long[] dimension = gridBlock[1];
 			
 					// Read in source block
-					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
-					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
-					final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName+"_holes")),offset, dimension);
+					final N5Reader n5ReaderInputLocal = new N5FSReader(inputN5Path);
+					final N5Reader n5ReaderOutputLocal = new N5FSReader(outputN5Path);
+
+					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderInputLocal, inputN5DatasetName)),offset, dimension); 
+					final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderOutputLocal, inputN5DatasetName+"_holes")),offset, dimension);
 					final IntervalView<T> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, attributes.getDataType()) ;
 
 					Cursor<T> outputCursor = output.cursor();
@@ -365,7 +378,7 @@ public class SparkFillHolesInConnectedComponents {
 					}
 
 
-					final N5Writer n5WriterLocal = new N5FSWriter(inputN5Path);
+					final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
 					N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 					
 					//Get distance transform
@@ -374,7 +387,7 @@ public class SparkFillHolesInConnectedComponents {
 		
 	}
 
-	public static void setupSparkAndFillHolesInConnectedComponents(String inputN5Path, String inputN5DatasetName, float minimumVolumeCutoff, String outputN5DatasetSuffix, boolean skipCreatingHoleDataset, boolean skipVolumeFilter) throws IOException {
+	public static void setupSparkAndFillHolesInConnectedComponents(String inputN5Path, String outputN5Path, String inputN5DatasetName, float minimumVolumeCutoff, String outputN5DatasetSuffix, boolean skipCreatingHoleDataset, boolean skipVolumeFilter) throws IOException {
 		final SparkConf conf = new SparkConf().setAppName("SparkFillHolesInConnectedComponents");
 	    	// Get all organelles
 		String[] organelles = { "" };
@@ -406,36 +419,36 @@ public class SparkFillHolesInConnectedComponents {
 			datasetToHoleFill = currentOrganelle;
 			if(!skipVolumeFilter) {
 				String tempVolumeFilteredDatasetName = currentOrganelle + "_volumeFilteredTemp"+outputN5DatasetSuffix;
-				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, inputN5Path, currentOrganelle, tempVolumeFilteredDatasetName, minimumVolumeCutoff, blockInformationList);
-				directoriesToDelete.add(inputN5Path + "/" + tempVolumeFilteredDatasetName);
+				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, currentOrganelle, tempVolumeFilteredDatasetName, minimumVolumeCutoff, blockInformationList);
+				directoriesToDelete.add(outputN5Path + "/" + tempVolumeFilteredDatasetName);
 				datasetToHoleFill = tempVolumeFilteredDatasetName;
 				ProcessingHelper.logMemory("Volume filter complete");
 			}
 			tempOutputN5DatasetName = datasetToHoleFill + "_holes" + "_blockwise_temp_to_delete";
 			finalOutputN5DatasetName = datasetToHoleFill + "_holes";
-			directoriesToDelete.add(inputN5Path + "/" + tempOutputN5DatasetName);
-			directoriesToDelete.add(inputN5Path + "/" + finalOutputN5DatasetName);
+			directoriesToDelete.add(outputN5Path + "/" + tempOutputN5DatasetName);
+			directoriesToDelete.add(outputN5Path + "/" + finalOutputN5DatasetName);
 			
 			if(!skipCreatingHoleDataset) {
 				// Get connected components of holes in *_holes
 				int minimumVolumeCutoffZero = 0;
 				blockInformationList = SparkConnectedComponents.blockwiseConnectedComponents(sc, inputN5Path,
-						datasetToHoleFill, inputN5Path, tempOutputN5DatasetName, null, 1, minimumVolumeCutoffZero,
+						datasetToHoleFill, outputN5Path, tempOutputN5DatasetName, null, 1, minimumVolumeCutoffZero,
 						blockInformationList, true, false);
 				ProcessingHelper.logMemory("Stage 1 complete");
 	
-				blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, inputN5Path,
+				blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, outputN5Path,
 						tempOutputN5DatasetName, minimumVolumeCutoffZero, blockInformationList);
 				ProcessingHelper.logMemory("Stage 2 complete");
 	
-				SparkConnectedComponents.mergeConnectedComponents(sc, inputN5Path, tempOutputN5DatasetName,
+				SparkConnectedComponents.mergeConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName,
 						finalOutputN5DatasetName, blockInformationList);
 				ProcessingHelper.logMemory("Stage 3 complete");
 			}
 			
 
-			MapsForFillingHoles mapsForFillingHoles = getMapsForFillingHoles(sc,  inputN5Path, datasetToHoleFill, blockInformationList);
-			fillHoles(sc, inputN5Path, datasetToHoleFill, currentOrganelle+outputN5DatasetSuffix, mapsForFillingHoles, blockInformationList);
+			MapsForFillingHoles mapsForFillingHoles = getMapsForFillingHoles(sc,  inputN5Path, outputN5Path, datasetToHoleFill, blockInformationList);
+			fillHoles(sc, inputN5Path, outputN5Path, datasetToHoleFill, currentOrganelle+outputN5DatasetSuffix, mapsForFillingHoles, blockInformationList);
 			
 			sc.close();
 		}
@@ -454,12 +467,13 @@ public class SparkFillHolesInConnectedComponents {
 
 		String inputN5DatasetName = options.getInputN5DatasetName();
 		String inputN5Path = options.getInputN5Path();
+		String outputN5Path = options.getOutputN5Path();
 		Float minimumVolumeCutoff = options.getMinimumVolumeCutoff();
 		String outputN5DatasetSuffix = options.getOutputN5DatasetSuffix();
 		boolean skipCreatingHoleDataset = options.getSkipCreatingHoleDataset();
 		boolean skipVolumeFilter = options.getSkipVolumeFilter();
 
-		setupSparkAndFillHolesInConnectedComponents(inputN5Path, inputN5DatasetName, minimumVolumeCutoff, outputN5DatasetSuffix, skipCreatingHoleDataset, skipVolumeFilter);
+		setupSparkAndFillHolesInConnectedComponents(inputN5Path, outputN5Path, inputN5DatasetName, minimumVolumeCutoff, outputN5DatasetSuffix, skipCreatingHoleDataset, skipVolumeFilter);
 
 	}
 }

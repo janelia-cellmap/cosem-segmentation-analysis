@@ -55,7 +55,7 @@ import net.imglib2.util.Util;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
-public class TestImageMaker {
+public class ImageCreationHelper {
     public static long [] getDimensions(int [][][] voxelValues) {
 	return new long [] {voxelValues.length, voxelValues[0].length, voxelValues[0][0].length};
     }

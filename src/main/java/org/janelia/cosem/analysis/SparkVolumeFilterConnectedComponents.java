@@ -61,6 +61,9 @@ public class SparkVolumeFilterConnectedComponents {
 
 		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
 		private String inputN5Path = null;
+		
+		@Option(name = "--outputN5Path", required = false, usage = "output N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		private String outputN5Path = null;
 
 		@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. /mito")
 		private String inputN5DatasetName = null;
@@ -76,6 +79,9 @@ public class SparkVolumeFilterConnectedComponents {
 			final CmdLineParser parser = new CmdLineParser(this);
 			try {
 				parser.parseArgument(args);
+				if (outputN5Path == null)
+				    outputN5Path = inputN5Path;
+				
 				parsedSuccessfully = true;
 			} catch (final CmdLineException e) {
 				System.err.println(e.getMessage());
@@ -85,6 +91,10 @@ public class SparkVolumeFilterConnectedComponents {
 
 		public String getInputN5Path() {
 			return inputN5Path;
+		}
+		
+		public String getOutputN5Path() {
+			return outputN5Path;
 		}
 
 		public String getInputN5DatasetName() {
@@ -101,13 +111,13 @@ public class SparkVolumeFilterConnectedComponents {
 
 	}
 	public static final <T extends NativeType<T>> void volumeFilterConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff,
 			List<BlockInformation> blockInformationList) throws IOException {
-		volumeFilterConnectedComponents(sc, inputN5Path, inputN5DatasetName, outputN5DatasetName, minimumVolumeCutoff, new HashSet<Long>(), blockInformationList);
+		volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, inputN5DatasetName, outputN5DatasetName, minimumVolumeCutoff, new HashSet<Long>(), blockInformationList);
 	}
 	
 	public static final <T extends IntegerType<T> & NativeType<T>> void volumeFilterConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, Set<Long> idsToKeep,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, Set<Long> idsToKeep,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
 				final N5Reader n5Reader = new N5FSReader(inputN5Path);
@@ -215,7 +225,7 @@ public class SparkVolumeFilterConnectedComponents {
 			if(!options.getIDsToKeep().isEmpty())
 				for(String s :  Arrays.asList(options.getIDsToKeep().split(","))) idsToKeep.add(Long.valueOf(s));
 			
-			volumeFilterConnectedComponents(sc, options.getInputN5Path(), currentOrganelle, currentOrganelle + "_volumeFiltered", options.getMinimumVolumeCutoff(), idsToKeep, blockInformationList);
+			volumeFilterConnectedComponents(sc, options.getInputN5Path(), options.getOutputN5Path(), currentOrganelle, currentOrganelle + "_volumeFiltered", options.getMinimumVolumeCutoff(), idsToKeep, blockInformationList);
 			sc.close();
 		}
 	}
