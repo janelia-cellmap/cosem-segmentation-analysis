@@ -15,7 +15,7 @@ Code to segment and analyze COSEM predictions.
  
  the latter argument for skipping unit tests. However, if you plan on modifying the code and/or would like to run tests, we recommend the following: 
  
- `mvn package -Dspark.master=local[32] -DargLine="-Xmx100g"`. 
+ `mvn package -Dspark.master=local[*] -DargLine="-Xmx100g"`. 
  
  The latter arguments are to ensure local spark is used for testing with enough memory. </li>
  </ol>
