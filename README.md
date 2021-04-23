@@ -39,7 +39,7 @@ To run one of the codes, eg. locally run SparkCompareDatasets, you can do the fo
 --class org.janelia.cosem.analysis.SparkCurvature \
 /path/to/compiled/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar \
 --inputN5Path '/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analysis/src/test/resources/images.n5' \
---outputN5Path '/tmp/test/images.n5' 
+--outputN5Path '/tmp/test/images.n5' \
 --inputN5DatasetName 'shapes_cc'
 ```
 
