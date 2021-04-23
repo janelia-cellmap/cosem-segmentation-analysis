@@ -1,11 +1,12 @@
 # COSEM Segmentation Analysis
-Code to segment and analyze COSEM predictions.
+Code to segment and analyze COSEM predictions. Requires [Maven](https://maven.apache.org/install.html), [Java JDK 8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html), and [Apache-Spark](https://spark.apache.org/downloads.html).
 
 ## Installation
 
+Clone the repository `git clone https://github.com/davidackerman/cosem-segmentation-analysis` and cd to the repository directory.
+
 <details><summary> Command line </summary>
 <ol>
-<li> Clone repository and cd to the repository directory. </li>
 <li> Run 
  
  `mvn compile`. </li>
@@ -25,7 +26,6 @@ OR
 
 <details><summary> Use an IDE such as Eclipse IDE </summary>
 <ol>
-<li> Clone the repository. </li>
 <li> In Eclipse IDE, select File->Import->Existing Maven project and select the "cosem-segmentation-analysis" directory. </li>
 <li> Right click on 
  
@@ -33,14 +33,21 @@ OR
 </ol>
 </details>
 
-To run one of the codes, eg. locally run SparkCompareDatasets, you can do the following (assuming spark is installed):
+You will now have a compiled jar file located at `/path/to/cosem-segmentation-analysis/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar`.
+
+To run one of the refinements, eg. locally run SparkConnectedComponents, you can do the following:
 ```bash 
 /path/to/spark-submit --master local[*] --conf "spark.executor.memory=100g" --conf "spark.driver.memory=100g" \
---class org.janelia.cosem.analysis.SparkCurvature \
+--class org.janelia.cosem.analysis.SparkConnectedComponents \
 /path/to/compiled/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar \
---inputN5Path '/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analysis/src/test/resources/images.n5' \
---outputN5Path '/tmp/test/images.n5' \
---inputN5DatasetName 'shapes_cc'
+--inputN5Path '/path/to/input.n5' \
+--outputN5Path '/path/to/output.n5' \
+--inputN5DatasetName 'datasetName' \
+--minimumVolumeCutoff '300E3' \
+--thresholdIntensityCutoff 127 \
+--outputN5DatasetSuffix '_cc'
 ```
 
-To run another analysis, replace SparkCurvature with the appropriate name and modify/add the requisite command line arguments.
+Which will take the uint8 image `/path/to/input.n5/datsetName`, threshold at `127`, perform connected component analysis on the thresholded data applying a minimum volume cutoff of `300E3 nm^3` and writes the results to `/path/to/output.n5/datsetName_cc`.
+
+To run another analysis, replace SparkConnectedComponents with the appropriate name and modify/add the requisite command line arguments.
