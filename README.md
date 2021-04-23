@@ -50,4 +50,4 @@ To run one of the refinements, eg. locally run SparkConnectedComponents, you can
 
 Which will take the uint8 image `/path/to/input.n5/datsetName`, threshold at `127`, perform connected component analysis on the thresholded data applying a minimum volume cutoff of `300E3 nm^3` and writes the results to `/path/to/output.n5/datsetName_cc`.
 
-To run another analysis, replace SparkConnectedComponents with the appropriate name and modify/add the requisite command line arguments.
+To run another analysis, replace `SparkConnectedComponents` with the appropriate name (see a list [here](https://github.com/davidackerman/cosem-segmentation-analysis/tree/main/src/main/java/org/janelia/cosem/analysis)) and modify/add the requisite command line arguments.
