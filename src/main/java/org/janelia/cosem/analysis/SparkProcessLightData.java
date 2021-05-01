@@ -33,6 +33,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
@@ -84,7 +85,7 @@ public class SparkProcessLightData {
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept (nm^3)")
 		private double minimumVolumeCutoff = 20E6;
 		
-		@Option(name = "--minimumContactSiteVolumeCutoff", required = false, usage = "Volume above which objects will be kept (nm^3)")
+		@Option(name = "--minimumContactSiteVolumeCutoff", required = false, usage = "Volume above which contact site objects will be kept (nm^3)")
 		private double minimumContactSiteVolumeCutoff = 35E3;
 
 		public Options(final String[] args) {

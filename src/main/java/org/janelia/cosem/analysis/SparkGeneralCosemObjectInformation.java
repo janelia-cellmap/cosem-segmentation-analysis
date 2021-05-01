@@ -72,10 +72,10 @@ public class SparkGeneralCosemObjectInformation {
 		@Option(name = "--inputPairs", required = false, usage = "Pairs that have contact sites, eg. 'a_to_b,c_to_d'")
 		private String inputPairs = null;
 		
-		@Option(name = "--skipContactSites", required = false, usage = "Get general information for contact sites")
+		@Option(name = "--skipContactSites", required = false, usage = "Skip general information for contact sites")
 		private boolean skipContactSites = false;
 		
-		@Option(name = "--skipSelfContacts", required = false, usage = "Get general information for contact sites")
+		@Option(name = "--skipSelfContacts", required = false, usage = "Skip general information for self contact sites")
 		private boolean skipSelfContacts = false;
 
 		public Options(final String[] args) {

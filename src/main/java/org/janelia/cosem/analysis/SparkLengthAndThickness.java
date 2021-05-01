@@ -42,6 +42,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.FloydWarshall;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;

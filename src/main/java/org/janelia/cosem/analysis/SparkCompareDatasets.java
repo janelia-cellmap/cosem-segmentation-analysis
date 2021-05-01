@@ -18,10 +18,8 @@ package org.janelia.cosem.analysis;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +41,6 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import net.imglib2.Cursor;
-import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
 import net.imglib2.view.IntervalView;
@@ -58,12 +55,12 @@ public class SparkCompareDatasets {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--inputN5Path", required = true, usage = "first input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
 		private String inputN5Path = null;
 		@Option(name = "--inputN5Path2", required = false, usage = "second input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
 		private String inputN5Path2 = null;
 
-		@Option(name = "--inputN5DatasetNames", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--inputN5DatasetNames", required = false, usage = "Comma separated list: \"firstDataset,secondDataset\"")
 		private String inputN5DatasetNames = null;
 		
 		public Options(final String[] args) {
@@ -214,6 +211,6 @@ public class SparkCompareDatasets {
 		String [] datasetNames = options.getInputN5DatasetNames().split(",");
 		boolean areEqual = setupSparkAndCompare(inputN5Path1, inputN5Path2, datasetNames[0], datasetNames[1]);
 	
-			System.out.println("Are they equal? " + areEqual);
+		System.out.println("Are they equal? " + areEqual);
 	}
 }

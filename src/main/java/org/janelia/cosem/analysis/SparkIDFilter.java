@@ -76,22 +76,22 @@ public class SparkIDFilter {
 		@Option(name = "--inputN5DatasetName", required = true, usage = "N5 dataset, e.g. /mito")
 		private String inputN5DatasetName = null;
 		
-		@Option(name = "--outputN5DatasetSuffix", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--outputN5DatasetSuffix", required = false, usage = "Output dataset suffix")
 		private String outputN5DatasetSuffix = "_filteredIDs";
 		
-		@Option(name = "--idsToKeep", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--idsToKeep", required = false, usage = "List of ids to keep")
 		private String idsToKeep = "";
 		
-		@Option(name = "--idsToDelete", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--idsToDelete", required = false, usage = "List of ids to delete ")
 		private String idsToDelete = "";
 		
-		@Option(name = "--keepAdjacentIDs", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--keepAdjacentIDs", required = false, usage = "Flag to keep ids adjacent to those selected to keep")
 		private boolean keepAdjacentIDs = false;
 	
-		@Option(name = "--doVolumeFilter", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--doVolumeFilter", required = false, usage = "Do volume filtering")
 		private boolean doVolumeFilter = false;
 		
-		@Option(name = "--minimumVolumeCutoff", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Minimum volume cutoff (nm^3)")
 		private double minimumVolumeCutoff = 20E6;
 		
 		public Options(final String[] args) {

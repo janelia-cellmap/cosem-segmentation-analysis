@@ -81,8 +81,8 @@ public class SparkExpandDataset {
 		@Option(name = "--outputN5DatasetSuffix", required = false, usage = "N5 suffix, e.g. _expandedForMeshes")
 		private String outputN5DatasetSuffix = "_expanded";
 		
-		@Option(name = "--thresholdIntensityCutoff", required = false, usage = "Expansion (voxels)")
-		private Integer thresholdIntensityCutoff = 1;
+		@Option(name = "--thresholdIntensityCutoff", required = false, usage = "Threshold intensity cutoff above which objects will be expanded")
+		private Integer thresholdIntensityCutoff = 0;
 		
 		@Option(name = "--expansionInNm", required = false, usage = "Expansion (nm)")
 		private double expansionInNm = 12;

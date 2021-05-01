@@ -38,6 +38,7 @@ import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.Bressenham3D;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
+import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.UnionFindDGA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -90,22 +91,22 @@ public class SparkContactSites {
 	@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. organelle")
 	private String inputN5DatasetName = null;
 
-	@Option(name = "--inputPairs", required = false, usage = "eg 'a_to_b,c_to_d'")
+	@Option(name = "--inputPairs", required = false, usage = "Pairs for which to calculate contacts: eg 'a_to_b,c_to_d'")
 	private String inputPairs = null;
 
-	@Option(name = "--contactDistance", required = false, usage = "Distance from orgnelle for contact site (nm)")
+	@Option(name = "--contactDistance", required = false, usage = "Contact site distance (nm)")
 	private double contactDistance = 10;
 
-	@Option(name = "--minimumVolumeCutoff", required = false, usage = "Minimum contact site cutoff (nm^3)")
+	@Option(name = "--minimumVolumeCutoff", required = false, usage = "Minimum contact site volume cutoff (nm^3)")
 	private double minimumVolumeCutoff = 35E3;
 
-	@Option(name = "--doSelfContacts", required = false, usage = "Minimum contact site cutoff (nm^3)")
+	@Option(name = "--doSelfContacts", required = false, usage = "Whether to do self contacts, i.e., an organelle's contact to other organelles of the same class")
 	private boolean doSelfContacts = false;
 
-	@Option(name = "--doNaiveMethod", required = false, usage = "Naive method")
+	@Option(name = "--doNaiveMethod", required = false, usage = "Use the naive contact site method (not recommended)")
 	private boolean doNaiveMethod = false;
 
-	@Option(name = "--skipGeneratingContactBoundaries", required = false, usage = "Minimum contact site cutoff (nm^3)")
+	@Option(name = "--skipGeneratingContactBoundaries", required = false, usage = "Skip generating contact boundaries; useful to save time if contact boundaries already exist")
 	private boolean skipGeneratingContactBoundaries = false;
 
 	public Options(final String[] args) {

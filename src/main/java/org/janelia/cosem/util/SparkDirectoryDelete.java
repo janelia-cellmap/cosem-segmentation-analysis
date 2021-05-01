@@ -1,4 +1,4 @@
-package org.janelia.cosem.analysis;
+package org.janelia.cosem.util;
 import java.io.File;
 import java.util.List;
 

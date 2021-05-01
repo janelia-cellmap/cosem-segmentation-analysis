@@ -61,19 +61,19 @@ public class SparkCreateValidationDatasets {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--n5PathValidationData", required = true, usage = "Dataset to mask N5 path")
+		@Option(name = "--n5PathValidationData", required = true, usage = "N5 path to groundtruth")
 		private String n5PathValidationData = null;
 		
-		@Option(name = "--n5PathRawPredictions", required = true, usage = "Dataset to use as mask N5 path")
+		@Option(name = "--n5PathRawPredictions", required = true, usage = "N5 path to Raw predictions")
 		private String n5PathRawPredictions = null;
 		
-		@Option(name = "--n5PathRefinedPredictions", required = true, usage = "Dataset to use as mask N5 path")
+		@Option(name = "--n5PathRefinedPredictions", required = true, usage = "N5 path to refined predictions, aka refined segmentations")
 		private String n5PathRefinedPredictions = null;
 
 		@Option(name = "--outputPath", required = true, usage = "Output N5 path")
 		private String outputPath = null;
 		
-		@Option(name = "--doMicrotubules", required = false, usage = "Output N5 path")
+		@Option(name = "--doMicrotubules", required = false, usage = "Whether or not to do microtubules")
 		private Boolean doMicrotubules = false;
 
 
