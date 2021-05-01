@@ -70,7 +70,7 @@ public class SparkRenumberN5 {
 	@Option(name = "--inputDirectory", required = true, usage = "directory containing renumbering data")
 	private String inputDirectory = null;
 	
-	@Option(name = "--renumberingCSV", required = false, usage = "renumberingData")
+	@Option(name = "--renumberingCSV", required = false, usage = "renumbering data")
 	private String renumberingCSV = null;
 
 	public Options(final String[] args) {

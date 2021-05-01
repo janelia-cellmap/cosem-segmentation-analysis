@@ -68,10 +68,10 @@ public class SparkGetRenumbering {
 	@Option(name = "--inputN5DatasetName", required = true, usage = "N5 dataset, e.g. /mito")
 	private String inputN5DatasetName = null;
 	
-	@Option(name = "--datasetToUseForRenumbering", required = false, usage = "N5 dataset, e.g. /mito")
+	@Option(name = "--datasetToUseForRenumbering", required = false, usage = "Optional N5 dataset to use for renumbering")
 	private String datasetToUseForRenumbering = null;
 	
-	@Option(name = "--pathToUseForRenumbering", required = false, usage = "N5 dataset, e.g. /mito")
+	@Option(name = "--pathToUseForRenumbering", required = false, usage = "Optional N5 path for renumbering")
 	private String pathToUseForRenumbering = null;
 
 	public Options(final String[] args) {

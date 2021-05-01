@@ -71,7 +71,7 @@ public class SparkVolumeFilterConnectedComponents {
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept")
 		private double minimumVolumeCutoff = 20E6;
 		
-		@Option(name = "--idsToKeep", required = false, usage = "Volume above which objects will be kept")
+		@Option(name = "--idsToKeep", required = false, usage = "Ids to keep during volume filtering even if below volume cutoff")
 		private String idsToKeep = "";
 
 		public Options(final String[] args) {

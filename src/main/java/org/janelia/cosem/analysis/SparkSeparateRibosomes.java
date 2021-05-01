@@ -62,22 +62,22 @@ public class SparkSeparateRibosomes {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--inputN5Path", required = true, usage = "ribosome N5 path")
 		private String inputN5Path = null;
 		
-		@Option(name = "--inputN5DatasetName", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--inputN5DatasetName", required = true, usage = "ribosome dataset name")
 		private String inputN5DatasetName = null;
 
-		@Option(name = "--outputN5Path", required = false, usage = "output N5 path, e.g. /nrs/flyem/data/tmp/Z0115-22.n5")
+		@Option(name = "--outputN5Path", required = false, usage = "output N5 path")
 		private String outputN5Path = null;
 
-		@Option(name = "--sheetnessCSV", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--sheetnessCSV", required = true, usage = "path to sheetness csv")
 		private String sheetnessCSV = null;
 		
-		@Option(name = "--sheetnessMaskedCSV", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--sheetnessMaskedCSV", required = true, usage = "path to sheetness measure using just peripheral er")
 		private String sheetnessMaskedCSV = null;
 		
-		@Option(name = "--sheetnessCutoff", required = false, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--sheetnessCutoff", required = false, usage = "planarity cutoff for ribosome to be considered plane or tube")
 		private double sheetnessCutoff = 0.9;
 		
 		public Options(final String[] args) {

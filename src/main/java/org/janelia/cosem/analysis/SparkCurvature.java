@@ -82,7 +82,7 @@ public class SparkCurvature {
 		@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. organelle. Requires organelle_medialSurface as well.")
 		private String inputN5DatasetName = null;
 		
-		@Option(name = "--scaleSteps", required = false, usage = "N5 dataset, e.g. organelle. Requires organelle_medialSurface as well.")
+		@Option(name = "--scaleSteps", required = false, usage = "Number of scale steps over which curvature is calculated")
 		private int scaleSteps = 12;
 		
 		@Option(name = "--calculateSphereness", required = false, usage = "Calculate Sphereness; if not set, will calculate sheetness")

@@ -56,34 +56,34 @@ public class SparkCrop {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--n5PathToCropTo", required = false, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--n5PathToCropTo", required = false, usage = "N5 path containing dataset to crop to, if cropping to the size of an existing dataset")
 		private String n5PathToCropTo = null;
 		
-		@Option(name = "--datasetNameToCropTo", required = false, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--datasetNameToCropTo", required = false, usage = "Dataset to crop to if cropping to the size of an existing dataset")
 		private String datasetNameToCropTo = null;
 		
-		@Option(name = "--inputN5Path", required = true, usage = "input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+		@Option(name = "--inputN5Path", required = true, usage = "N5 path containing data to crop")
 		private String inputN5Path = null;
 
-		@Option(name = "--outputN5Path", required = false, usage = "output N5 path, e.g. /nrs/flyem/data/tmp/Z0115-22.n5")
+		@Option(name = "--outputN5Path", required = false, usage = "Output N5 path")
 		private String outputN5Path = null;
 
-		@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--inputN5DatasetName", required = false, usage = "Dataset to crop")
 		private String inputN5DatasetName = null;
 		
-		@Option(name = "--outputN5DatasetSuffix", required = true, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--outputN5DatasetSuffix", required = true, usage = "Suffix to append to cropped dataset, eg '_crop' ")
 		private String outputN5DatasetSuffix = "";
 		
-		@Option(name = "--convertTo8Bit", required = false, usage = "whether to convert to 8 bit")
+		@Option(name = "--convertTo8Bit", required = false, usage = "Whether to convert to 8 bit")
 		private boolean convertTo8Bit = false;
 		
-		@Option(name = "--offsetsToCropTo", required = false, usage = "nm")
+		@Option(name = "--offsetsToCropTo", required = false, usage = "Offsets for crop in nm, as a comma separated list eg: '1000,500,750'")
 		private String offsetsToCropTo = null;
 		
-		@Option(name = "--dimensions", required = false, usage = "block size")
+		@Option(name = "--dimensions", required = false, usage = "Dimensions for crop in voxels, as a comma separated list eg: '250,250,250'")
 		private String dimensions = null;
 		
-		@Option(name = "--blockSize", required = false, usage = "block size")
+		@Option(name = "--blockSize", required = false, usage = "Block size for crop, as comma separated list eg: '128,128,128'")
 		private String blockSize = "128,128,128";
 		
 

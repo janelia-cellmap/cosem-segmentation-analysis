@@ -80,9 +80,7 @@ import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 /**
- * Calculate curvature for a dataset Borrowed from
- * https://github.com/saalfeldlab/hot-knife/blob/tubeness/src/test/java/org/janelia/saalfeldlab/hotknife/LazyBehavior.java
- * 
+  * 
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
 public class SparkErosionAndDilation {
@@ -95,10 +93,10 @@ public class SparkErosionAndDilation {
 	@Option(name = "--outputN5Path", required = false, usage = "output N5 path, e.g. /path/to/output/data.n5")
 	private String outputN5Path = null;
 
-	@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. organelle. Requires organelle_medialSurface as well.")
+	@Option(name = "--inputN5DatasetName", required = false, usage = "N5 dataset, e.g. organelle. ")
 	private String inputN5DatasetName = null;
 	
-	@Option(name = "--distance", required = false, usage = "N5 dataset, e.g. organelle. Requires organelle_medialSurface as well.")
+	@Option(name = "--distance", required = false, usage = "Distance to erode dataset (nm); dilation distance is 10% more than this distance")
 	private float distance = 500;
 
 	public Options(final String[] args) {

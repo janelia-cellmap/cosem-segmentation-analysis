@@ -59,13 +59,13 @@ public class SparkProtrusionArea {
 		@Option(name = "--outputDirectory", required = true, usage = "output N5 path, e.g. /nrs/flyem/data/tmp/Z0115-22.n5")
 		private String outputDirectory = null;
 
-		@Option(name = "--protrusionDataset", required = true, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--protrusionDataset", required = true, usage = "Protrusion dataset")
 		private String protrusionDataset = null;
 		
-		@Option(name = "--protrusionCellDataset", required = true, usage = "N5 dataset, e.g. /mito")
+		@Option(name = "--protrusionCellDataset", required = true, usage = "Dataset of cell from which protrusion was determined")
 		private String protrusionCellDataset = null;
 		
-		@Option(name = "--expandedCellDataset", required = true, usage = "N5 suffix, e.g. _expandedForMeshes")
+		@Option(name = "--expandedCellDataset", required = true, usage = "Expanded cell dataset used to determine how much protrusion/nonprotrusion surface area of one cell is within distance of neighboring cell")
 		private String expandedCellDataset = null;
 		
 

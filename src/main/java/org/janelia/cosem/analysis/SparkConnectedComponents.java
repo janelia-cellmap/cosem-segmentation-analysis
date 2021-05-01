@@ -41,6 +41,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
+import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.UnionFindDGA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
