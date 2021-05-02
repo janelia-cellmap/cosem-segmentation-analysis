@@ -94,13 +94,13 @@ public class SparkFillHolesInConnectedComponents {
 		@Option(name = "--outputN5DatasetSuffix", required = false, usage = "N5 suffix, e.g. _cc so output would be /mito_cc")
 		private String outputN5DatasetSuffix = "";
 
-		@Option(name = "--skipVolumeFilter", required = false, usage = "N5 suffix, e.g. _cc so output would be /mito_cc")
+		@Option(name = "--skipVolumeFilter", required = false, usage = "Skip volume filtering")
 		private boolean skipVolumeFilter = false;
 		
-		@Option(name = "--skipCreatingHoleDataset", required = false, usage = "N5 suffix, e.g. _cc so output would be /mito_cc")
+		@Option(name = "--skipCreatingHoleDataset", required = false, usage = "Skip creating hole dataset (if it exists already)")
 		private boolean skipCreatingHoleDataset = false;
 		
-		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept")
+		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept (nm^3)")
 		private float minimumVolumeCutoff = 20000000;
 
 		public Options(final String[] args) {
