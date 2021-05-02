@@ -3,7 +3,7 @@ Code to segment and analyze COSEM predictions. Requires [Maven](https://maven.ap
 
 ## Installation
 
-Clone the repository `git clone https://github.com/davidackerman/cosem-segmentation-analysis` and cd to the repository directory.
+Clone the repository and cd to the repository directory.
 
 <details><summary> Command line </summary>
 <ol>
@@ -29,7 +29,7 @@ OR
 <li> In Eclipse IDE, select File->Import->Existing Maven project and select the "cosem-segmentation-analysis" directory. </li>
 <li> Right click on 
  
- `cosem-segmentation-analysis` in the project explorer and select `Run As` -> `Maven Build`, click `Skip Tests` checkbox if desired, and click `Run`. However, if you plan on modifying the code and/or would like to run tests, we recommend the following:  After selecting `Maven Build` as above, add the following parameter names and values:`spark.master`:`local[32]` and `argLine`:`-Xmx100g`, and click run. </li>
+ `cosem-segmentation-analysis` in the project explorer and select `Run As` -> `Maven Build`, click `Skip Tests` checkbox if desired, and click `Run`. However, if you plan on modifying the code and/or would like to run tests, first create we recommend the following:  After selecting `Maven Build` as above, add the following parameter names and values:`spark.master`:`local[32]` and `argLine`:`-Xmx100g`, and click run. </li>
 </ol>
 </details>
 
